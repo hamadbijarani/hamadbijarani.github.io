@@ -9,56 +9,42 @@ redirect_from:
 
 {% include base_path %}
 
+<p style="text-align: center; margin-top: 100px;">
+  <a href="/assets/PDFs/My_CV_1.pdf" class="btn" style="font-size: 1.5em;">📄 Download My CV (PDF)</a>
+</p>
+
 Education
 ======
-* Ph.D in Version Control Theory, GitHub University, 2018 (expected)
-* M.S. in Jekyll, GitHub University, 2014
-* B.S. in GitHub, GitHub University, 2012
+* B.E. in Computer Systems Engineering, Sukkur IBA University, 2023
 
 Work experience
 ======
-* Spring 2024: Academic Pages Collaborator
-  * GitHub University
-  * Duties includes: Updates and improvements to template
-  * Supervisor: The Users
-
-* Fall 2015: Research Assistant
-  * GitHub University
-  * Duties included: Merging pull requests
-  * Supervisor: Professor Hub
-
-* Summer 2015: Research Assistant
-  * GitHub University
-  * Duties included: Tagging issues
-  * Supervisor: Professor Git
+* Freelancer @ Fiverr/Upwork (Summer 2023 - Current)
+  * Achieved Level 1 on Fiverr
+  * Completed +20 orders on Fiverr
+  * Worked on NLP, CV, and mathematics related tasks
   
 Skills
 ======
-* Skill 1
-* Skill 2
-  * Sub-skill 2.1
-  * Sub-skill 2.2
-  * Sub-skill 2.3
-* Skill 3
+* Python
+* C/C++
+* MATLAB
+* PyTorch
+* Numpy, and Pandas
+* Scikit-Learn
+* Git
+* Soft-Skills
+  * Leadership
+  * Project Management
+  * Communication skills
+  * Time Management
 
-Publications
+Hobbies
 ======
-  <ul>{% for post in site.publications reversed %}
-    {% include archive-single-cv.html %}
-  {% endfor %}</ul>
-  
-Talks
-======
-  <ul>{% for post in site.talks reversed %}
-    {% include archive-single-talk-cv.html  %}
-  {% endfor %}</ul>
-  
-Teaching
-======
-  <ul>{% for post in site.teaching reversed %}
-    {% include archive-single-cv.html %}
-  {% endfor %}</ul>
-  
+* Avid Book Reader
+* Hacker
+* Cycling
+
 Service and leadership
 ======
-* Currently signed in to 43 different slack teams
+* Led team in different Hackathons, & Competitions
