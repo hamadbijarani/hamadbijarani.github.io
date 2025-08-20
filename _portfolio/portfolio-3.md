@@ -1,6 +1,6 @@
 ---
-title: "Portfolio item number 2"
-excerpt: "Short description of portfolio item number 2 <br/><img src='/images/500x300.png'>"
+title: "ANN Classification Churn Model"
+excerpt: "A simple ANN based Churn Modelling<br/><img src='/images/portfolio/p3/img1.png'>"
 collection: portfolio
 ---
 

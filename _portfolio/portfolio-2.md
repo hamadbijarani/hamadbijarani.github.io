@@ -1,6 +1,6 @@
 ---
-title: "Multi-PDF RAG Chatbot"
-excerpt: "A simple RAG based PDF chatbot<br/><img src='/images/portfolio/p1/img1.png'>"
+title: "Sentiment Analysis using LSTM"
+excerpt: "A high‑impact sentiment analysis pipeline built with Bi‑Directional LSTM and self‑attention mechanism.<br/><img src='/images/portfolio/p2/img1.png'>"
 collection: portfolio
 ---
 

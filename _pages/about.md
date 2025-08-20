@@ -9,13 +9,13 @@ redirect_from:
 
 Short Summary
 ------
-I am a Data Scientist and AI Engineer passionate about leveraging machine learning to solve real-world problems. My expertise lies in statistical modeling, natural language processing, and deploying scalable AI solutions.
+I am a BE CSE student at Sukkur IBA University currently in 5th semester. I am passionate about leveraging machine learning to solve real-world problems. My expertise lies in statistical modeling, natural language processing, and deploying scalable AI solutions. My life goal is to contribute in creating AGI/ASI. 
 
 
 Research Interests
 ------
 
-* Explainable AI (XAI)
 * Reinforcement Learning for Autonomous Systems
 * Efficient Deep Learning Models (Model Compression & Quantization)
-* Causal Inference in Machine Learning
+* Novel AI Architectures
+* Artificial General Intelligence (ASI) / Artificial Super Intelligence (ASI)
