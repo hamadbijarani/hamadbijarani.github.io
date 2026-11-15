@@ -46,6 +46,26 @@
   <section class="hero" aria-labelledby="masthead-title">
    <h1 id="masthead-title">Efficient AI, grounded in systems.</h1>
    <p class="lede">Investigating efficient, quantized language models under limited data and compute, and how machine learning and pretrained foundation models can reason over scientific data.</p>
+   <div class="quant-sim" data-quantization>
+    <div class="quant-sim-head"><b>Quantization simulator</b><span><output data-quant-bits>4</output>-bit weights</span></div>
+    <div class="quant-ctl">
+     <label for="quant-bits">Precision</label>
+     <input id="quant-bits" type="range" min="2" max="8" step="1" value="4" data-quant-slider aria-describedby="quant-help"/>
+     <div class="quant-presets" role="group" aria-label="Precision presets"><button type="button" data-quant-preset="2">INT2</button><button type="button" data-quant-preset="4">INT4</button><button type="button" data-quant-preset="8">INT8</button></div>
+     <label class="quant-check"><input type="checkbox" data-quant-outliers/> Add outlier weights</label>
+    </div>
+    <div class="quant-views">
+     <figure><canvas data-q-line role="img" aria-label="Line chart of 64 weights: original values and their quantized staircase"></canvas><figcaption>One row of 64 weights. Line: original. Steps: quantized. Faint lines: the available levels.</figcaption></figure>
+     <figure><canvas data-q-mat role="img" aria-label="Heatmaps of a 16 by 16 weight matrix: original, quantized, and error"></canvas><figcaption>Weight matrix: original, quantized, and error (fixed scale). The box marks the row on the left.</figcaption></figure>
+    </div>
+    <div class="quant-results" aria-live="polite">
+     <span>Memory vs FP16<b data-quant-memory>25%</b></span>
+     <span>Representable levels<b data-quant-levels>16</b></span>
+     <span>Mean squared error<b data-quant-mse>0</b></span>
+     <span>Signal-to-noise<b data-quant-snr>0 dB</b></span>
+    </div>
+    <p id="quant-help" class="small muted">Fewer bits means less memory but coarser steps. Turn on outliers: a few large weights stretch the range, so every other weight gets fewer useful levels.</p>
+   </div>
    <div class="stats">
     <div><b>3.48/4.0</b><span>Cumulative CGPA</span></div>
     <div><b>50+</b><span>Production AI deployments</span></div>
@@ -129,7 +149,7 @@
    </ul>
   </section>
 
-  <footer><span>Hamadullah Bijarani, Sukkur IBA University. Last revised October 2026.</span><a href="#top">Back to top</a></footer>
+  <footer><span>Hamadullah Bijarani, Sukkur IBA University. Last revised November 2026.</span><a href="#top">Back to top</a></footer>
  </main>
 </div>
 <script defer src="script.js"></script>
