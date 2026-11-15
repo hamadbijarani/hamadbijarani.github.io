@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PEFT Compute Explorer — Hamadullah Bijarani</title>
+  <meta name="description" content="Illustrative LoRA trainable-parameter and VRAM estimates for dense transformer backbones.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,16..72,400;0,16..72,500&family=Plus+Jakarta+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html">Hamadullah Bijarani</a>
+    <nav aria-label="Main"><a href="index.html#research">← Back to research</a></nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section>
+    <h2>The cost of adaptation</h2>
+    <p class="muted">Illustrative LoRA parameter and memory estimates, with W′ = W + BA.</p>
+
+    <div class="controls">
+      <label>Backbone parameters
+        <select id="model">
+          <option value="0">1.1B</option><option value="1">3.2B</option>
+          <option value="2" selected>8.0B</option><option value="3">14.7B</option>
+        </select>
+      </label>
+      <label>Adapter rank r
+        <select id="rank">
+          <option value="0">4</option><option value="1">8</option>
+          <option value="2" selected>16</option><option value="3">32</option><option value="4">64</option>
+        </select>
+      </label>
+      <label>Target projections
+        <select id="target">
+          <option value="0" selected>Q + V</option><option value="1">All attention</option><option value="2">All linear</option>
+        </select>
+      </label>
+      <label>Frozen-weight precision
+        <select id="precision">
+          <option value="0" selected>FP16</option><option value="1">INT8</option><option value="2">INT4</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="results" aria-live="polite">
+      <div><span class="mono">Trainable parameters</span><div class="num" id="trainable"></div></div>
+      <div><span class="mono">Parameter reduction</span><div class="num" id="reduction"></div></div>
+      <div><span class="mono">Estimated PEFT VRAM</span><div class="num" id="peftvram"></div></div>
+    </div>
+
+    <div>
+      <div class="small">Full fine-tuning · FP16 / Adam — <strong id="fullvram"></strong></div>
+      <div class="bar"><span style="width:100%"></span></div>
+      <div class="small"><span id="peftlabel"></span> — <strong id="peftvram2"></strong> <span class="muted" id="fits"></span></div>
+      <div class="bar"><span id="peftbar"></span></div>
+    </div>
+
+    <details>
+      <summary>Estimation assumptions &amp; limitations</summary>
+      <div>
+        <p>Representative dense, non-GQA transformers (1.1B: 24 layers, 8.0B: 32 layers, hidden 4096, feed-forward 14336, and so on). Not named checkpoints. Q/V: 4Ldr; attention: 8Ldr; all linear: Lr[8d + 3(d + f)]. Embeddings and output head are excluded.</p>
+        <p>LoRA adapters remain mixed precision. Memory uses frozen weights × 1.2 for overhead, 16 bytes per trainable parameter for Adam-style training, and a fixed 2 GiB activation allowance. Full fine-tuning uses 16 bytes per backbone parameter + 2 GiB. 1 GiB = 2³⁰ bytes.</p>
+        <p>These are planning estimates, not measured performance. Sequence length, batch size, checkpointing, grouped-query attention, kernels, and quantization metadata change actual requirements. Parameter reduction is not VRAM reduction.</p>
+      </div>
+    </details>
+  </section>
+</main>
+
+<footer class="wrap"><a href="index.html">Hamadullah Bijarani</a></footer>
+
+<script>
+(function () {
+  var BACKBONES = [
+    { p: 1.1e9,  L: 24, d: 2048, f: 5504 },
+    { p: 3.2e9,  L: 32, d: 3072, f: 8192 },
+    { p: 8.0e9,  L: 32, d: 4096, f: 14336 },
+    { p: 14.7e9, L: 40, d: 5120, f: 13824 }
+  ];
+  var RANKS = [4, 8, 16, 32, 64];
+  var TARGETS = ["qv", "attention", "linear"];
+  var PRECISIONS = [["FP16", 2], ["INT8", 1], ["INT4", 0.5]];
+  var GIB = Math.pow(2, 30);
+
+  function $(id) { return document.getElementById(id); }
+  function fmt(n) {
+    if (n >= 1e9) return (n / 1e9).toFixed(2) + " B";
+    if (n >= 1e6) return (n / 1e6).toFixed(2) + " M";
+    return (n / 1e3).toFixed(1) + " K";
+  }
+
+  function update() {
+    var m = BACKBONES[+$("model").value];
+    var r = RANKS[+$("rank").value];
+    var t = TARGETS[+$("target").value];
+    var prec = PRECISIONS[+$("precision").value];
+
+    var attn = t === "qv" ? 4 * m.d : 8 * m.d;
+    var mlp = t === "linear" ? 3 * (m.d + m.f) : 0;
+    var trainable = m.L * r * (attn + mlp);
+    var peft = (m.p * prec[1] * 1.2 + trainable * 16) / GIB + 2;
+    var full = (m.p * 16) / GIB + 2;
+
+    $("trainable").textContent = fmt(trainable);
+    $("reduction").textContent = ((1 - trainable / m.p) * 100).toFixed(2) + " %";
+    $("peftvram").textContent = peft.toFixed(1) + " GiB";
+    $("peftvram2").textContent = peft.toFixed(1) + " GiB";
+    $("fullvram").textContent = full.toFixed(1) + " GiB";
+    $("peftlabel").textContent = "LoRA · " + prec[0] + " backbone";
+    $("fits").textContent = peft <= 24 ? "(fits a 24 GiB GPU)" : "(exceeds a 24 GiB GPU)";
+    $("peftbar").style.width = Math.min(100, (peft / full) * 100) + "%";
+  }
+
+  ["model", "rank", "target", "precision"].forEach(function (id) {
+    $(id).addEventListener("change", update);
+  });
+  update();
+})();
+</script>
+</body>
+</html>

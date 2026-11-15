@@ -1,1283 +1,207 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
- <head>
-  <meta charset="utf-8"/>
-  <meta content="width=device-width, initial-scale=1" name="viewport"/>
-  <link as="image" href="assets/hamadullah-bijarani.jpg" rel="preload"/>
-  <title>
-   Hamadullah Bijarani — AI Research &amp; Computer Systems Engineering
-  </title>
-  <meta content="Hamadullah Bijarani" name="author"/>
-  <meta content="Academic portfolio of Hamadullah Bijarani at Sukkur IBA University. Research interests in efficient AI and model compression, AI for science, and foundation models for science." name="description"/>
-  <meta content="Hamadullah Bijarani — AI Research &amp; Computer Systems Engineering" property="og:title"/>
-  <meta content="Academic portfolio of Hamadullah Bijarani at Sukkur IBA University. Research interests in efficient AI and model compression, AI for science, and foundation models for science." property="og:description"/>
-  <meta content="profile" property="og:type"/>
-  <meta content="summary_large_image" name="twitter:card"/>
-  <link href="/favicon.ico" rel="icon" type="image/x-icon"/>
-  <link href="https://fonts.googleapis.com" rel="preconnect"/>
-  <link crossorigin="anonymous" href="https://fonts.gstatic.com" rel="preconnect"/>
-  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,16..72,400;0,16..72,500;0,16..72,600;1,16..72,400&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
-  <link href="styles.css" rel="stylesheet"/>
- </head>
- <body>
-  <!--$-->
-  <div class="min-h-screen" id="top">
-   <header class="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur-sm">
-    <div class="mx-auto flex h-[76px] max-w-[1320px] items-center justify-between gap-5 px-5 sm:px-8">
-     <a class="shrink-0 whitespace-nowrap font-serif text-[23px] leading-none" href="#top">
-      Hamadullah Bijarani
-     </a>
-     <nav aria-label="Main navigation" class="hidden shrink-0 items-center gap-5 xl:flex">
-      <a class="whitespace-nowrap text-xs text-muted-foreground transition-colors hover:text-primary" href="#about">
-       About
-      </a>
-      <a class="whitespace-nowrap text-xs text-muted-foreground transition-colors hover:text-primary" href="#research">
-       Research
-      </a>
-      <a class="whitespace-nowrap text-xs text-muted-foreground transition-colors hover:text-primary" href="#publications">
-       Publications
-      </a>
-      <a class="whitespace-nowrap text-xs text-muted-foreground transition-colors hover:text-primary" href="#projects">
-       Projects
-      </a>
-      <a class="whitespace-nowrap text-xs text-muted-foreground transition-colors hover:text-primary" href="#experience">
-       Experience
-      </a>
-     </nav>
-     <div class="flex shrink-0 items-center gap-2 sm:gap-3">
-      <a class="items-center justify-center gap-2 whitespace-nowrap font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-8 px-3 hidden rounded-sm text-xs sm:inline-flex" href="assets/Hamadullah-Bijarani-CV.pdf" rel="noopener noreferrer" target="_blank">
-       <svg aria-hidden="true" class="lucide lucide-file-text size-3.5" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z">
-        </path>
-        <path d="M14 2v5a1 1 0 0 0 1 1h5">
-        </path>
-        <path d="M10 9H8">
-        </path>
-        <path d="M16 13H8">
-        </path>
-        <path d="M16 17H8">
-        </path>
-       </svg>
-       CV (PDF)
-      </a>
-      <button aria-label="Switch to night mode" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 hover:bg-accent h-9 w-9 shrink-0 text-muted-foreground hover:text-primary" data-theme-toggle="" title="Night mode">
-       <svg aria-hidden="true" class="lucide lucide-moon" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401">
-        </path>
-       </svg>
-      </button>
-      <button aria-label="Open navigation" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-9 w-9 xl:hidden" data-open-dialog="nav-dialog">
-       <svg aria-hidden="true" class="lucide lucide-menu" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M4 5h16">
-        </path>
-        <path d="M4 12h16">
-        </path>
-        <path d="M4 19h16">
-        </path>
-       </svg>
-      </button>
-     </div>
-    </div>
-   </header>
-   <div class="portfolio-layout mx-auto max-w-[1320px] px-5 sm:px-8">
-    <aside aria-label="Personal profile" class="profile-sidebar min-w-0">
-     <div class="sidebar-sticky">
-      <img alt="Hamadullah Bijarani" class="aspect-square w-full max-w-[230px] rounded-sm object-cover" height="450" src="assets/hamadullah-bijarani.jpg" width="450"/>
-      <h1 class="mt-6 text-[31px] leading-tight">
-       Hamadullah
-       <br/>
-       Bijarani
-       <span class="text-primary">
-        .
-       </span>
-      </h1>
-      <p class="mt-3 text-xs leading-6 text-muted-foreground">
-       Computer Systems Engineering Undergraduate &amp; Independent AI Researcher
-      </p>
-      <p class="mt-4 flex items-start gap-2 text-[11px] leading-5 text-muted-foreground">
-       <svg aria-hidden="true" class="lucide lucide-map-pin mt-1 size-3 shrink-0" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0">
-        </path>
-        <circle cx="12" cy="10" r="3">
-        </circle>
-       </svg>
-       Sukkur IBA University
-       <br/>
-       Sindh, Pakistan
-      </p>
-      <div class="mt-6 border-t border-border pt-5">
-       <p class="section-label">
-        Latest update
-       </p>
-       <p class="mt-2 font-mono text-[11px] text-muted-foreground">
-        October 2026
-       </p>
-      </div>
-      <div class="mt-6 space-y-3 border-t border-border pt-5 text-xs">
-       <div class="flex items-start gap-2">
-        <svg aria-hidden="true" class="lucide lucide-mail mt-1 size-3.5 shrink-0 text-muted-foreground" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-         <path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7">
-         </path>
-         <rect height="16" rx="2" width="20" x="2" y="4">
-         </rect>
-        </svg>
-        <a class="academic-link min-w-0 break-all leading-5" href="mailto:hamadullahkhanbijarani@gmail.com">
-         hamadullahkhanbijarani@gmail.com
-        </a>
-        <span class="inline-flex max-w-full items-center gap-2">
-         <button aria-label="Copy profile email" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground size-6 shrink-0 [&amp;_svg]:size-3" data-copy="hamadullahkhanbijarani@gmail.com" title="Copy profile email">
-          <svg aria-hidden="true" class="lucide lucide-copy" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-           <rect height="14" rx="2" ry="2" width="14" x="8" y="8">
-           </rect>
-           <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2">
-           </path>
-          </svg>
-         </button>
-         <span class="text-xs text-primary" role="status">
-         </span>
-        </span>
-       </div>
-       <a class="academic-link flex items-center gap-2" href="https://github.com/hamadbijarani" rel="noopener noreferrer" target="_blank">
-        <svg aria-hidden="true" class="lucide lucide-github size-3.5" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-         <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4">
-         </path>
-         <path d="M9 18c-4.51 2-5-2-7-2">
-         </path>
-        </svg>
-        GitHub
-        <svg aria-hidden="true" class="lucide lucide-arrow-up-right size-3" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-         <path d="M7 7h10v10">
-         </path>
-         <path d="M7 17 17 7">
-         </path>
-        </svg>
-       </a>
-       <a class="academic-link flex items-center gap-2" href="https://www.linkedin.com/in/hamadullah-bijarani/" rel="noopener noreferrer" target="_blank">
-        <svg aria-hidden="true" class="lucide lucide-linkedin size-3.5" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-         <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z">
-         </path>
-         <rect height="12" width="4" x="2" y="9">
-         </rect>
-         <circle cx="4" cy="4" r="2">
-         </circle>
-        </svg>
-        LinkedIn
-        <svg aria-hidden="true" class="lucide lucide-arrow-up-right size-3" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-         <path d="M7 7h10v10">
-         </path>
-         <path d="M7 17 17 7">
-         </path>
-        </svg>
-       </a>
-       <a class="academic-link flex items-center gap-2" href="https://scholar.google.com/citations?user=tfdjEF0AAAAJ&amp;hl=en&amp;inst=645383205921872" rel="noopener noreferrer" target="_blank">
-        <svg aria-hidden="true" class="lucide lucide-graduation-cap size-3.5" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-         <path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z">
-         </path>
-         <path d="M22 10v6">
-         </path>
-         <path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5">
-         </path>
-        </svg>
-        Google Scholar
-        <svg aria-hidden="true" class="lucide lucide-arrow-up-right size-3" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-         <path d="M7 7h10v10">
-         </path>
-         <path d="M7 17 17 7">
-         </path>
-        </svg>
-       </a>
-       <a class="academic-link flex items-center gap-2" href="https://www.researchgate.net/profile/Hamadullah-Bijarani" rel="noopener noreferrer" target="_blank">
-        <svg aria-hidden="true" class="lucide lucide-users size-3.5" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-         <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2">
-         </path>
-         <path d="M16 3.128a4 4 0 0 1 0 7.744">
-         </path>
-         <path d="M22 21v-2a4 4 0 0 0-3-3.87">
-         </path>
-         <circle cx="9" cy="7" r="4">
-         </circle>
-        </svg>
-        ResearchGate
-        <svg aria-hidden="true" class="lucide lucide-arrow-up-right size-3" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-         <path d="M7 7h10v10">
-         </path>
-         <path d="M7 17 17 7">
-         </path>
-        </svg>
-       </a>
-       <a class="academic-link flex items-center gap-2" href="https://orcid.org/0009-0007-9151-6633" rel="noopener noreferrer" target="_blank">
-        <svg aria-hidden="true" class="lucide lucide-fingerprint-pattern size-3.5" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-         <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4">
-         </path>
-         <path d="M14 13.12c0 2.38 0 6.38-1 8.88">
-         </path>
-         <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02">
-         </path>
-         <path d="M2 12a10 10 0 0 1 18-6">
-         </path>
-         <path d="M2 16h.01">
-         </path>
-         <path d="M21.8 16c.2-2 .131-5.354 0-6">
-         </path>
-         <path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2">
-         </path>
-         <path d="M8.65 22c.21-.66.45-1.32.57-2">
-         </path>
-         <path d="M9 6.8a6 6 0 0 1 9 5.2v2">
-         </path>
-        </svg>
-        ORCID
-        <svg aria-hidden="true" class="lucide lucide-arrow-up-right size-3" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-         <path d="M7 7h10v10">
-         </path>
-         <path d="M7 17 17 7">
-         </path>
-        </svg>
-       </a>
-       <a class="academic-link flex items-center gap-2" href="https://huggingface.co/hamadbijarani012" rel="noopener noreferrer" target="_blank">
-        <svg aria-hidden="true" class="lucide lucide-bot size-3.5" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-         <path d="M12 8V4H8">
-         </path>
-         <rect height="12" rx="2" width="16" x="4" y="8">
-         </rect>
-         <path d="M2 14h2">
-         </path>
-         <path d="M20 14h2">
-         </path>
-         <path d="M15 13v2">
-         </path>
-         <path d="M9 13v2">
-         </path>
-        </svg>
-        Hugging Face
-        <svg aria-hidden="true" class="lucide lucide-arrow-up-right size-3" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-         <path d="M7 7h10v10">
-         </path>
-         <path d="M7 17 17 7">
-         </path>
-        </svg>
-       </a>
-       <a class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 text-control text-xs" href="assets/Hamadullah-Bijarani-CV.pdf" rel="noopener noreferrer" target="_blank">
-        <svg aria-hidden="true" class="lucide lucide-file-text size-3.5" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-         <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z">
-         </path>
-         <path d="M14 2v5a1 1 0 0 0 1 1h5">
-         </path>
-         <path d="M10 9H8">
-         </path>
-         <path d="M16 13H8">
-         </path>
-         <path d="M16 17H8">
-         </path>
-        </svg>
-        Curriculum Vitae
-       </a>
-      </div>
-     </div>
-    </aside>
-    <main class="portfolio-main min-w-0">
-     <section aria-labelledby="masthead-title" class="pb-0 pt-14 sm:pt-20">
-      <p class="mb-7 max-w-2xl text-[11px] leading-6 text-muted-foreground">
-       Sukkur IBA University
-       <span class="mx-1 text-primary">
-        ·
-       </span>
-       Department of Computer Systems Engineering
-       <span class="mx-1 text-primary">
-        ·
-       </span>
-       Sukkur, Sindh, Pakistan
-      </p>
-      <div>
-       <div>
-        <p class="section-label">
-         Research &amp; engineering
-        </p>
-        <h2 class="mt-4 text-[30px] leading-[1.1] sm:whitespace-nowrap sm:text-[36px] lg:text-[42px]" id="masthead-title">
-         Efficient AI. Grounded in systems.
-        </h2>
-        <blockquote class="mt-8 max-w-[740px] font-serif text-[25px] italic leading-[1.45] sm:text-[29px]">
-         “Investigating efficient, quantized language models under limited data and compute — and how machine learning and pretrained foundation models can reason over scientific data.”
-        </blockquote>
-       </div>
-      </div>
-      <div class="mb-9 mt-10 grid grid-cols-2 gap-y-7 border-y border-border py-7 sm:mt-12 sm:grid-cols-3">
-       <div class="px-4 first:pl-0 border-border">
-        <p class="font-mono text-[27px] leading-tight tabular-nums">
-         3.48/4.0
-        </p>
-        <p class="mt-2 text-[11px] text-muted-foreground">
-         Cumulative CGPA
-        </p>
-       </div>
-       <div class="px-4 first:pl-0 sm:border-l border-border">
-        <p class="font-mono text-[27px] leading-tight tabular-nums">
-         50+
-        </p>
-        <p class="mt-2 text-[11px] text-muted-foreground">
-         Production AI deployments
-        </p>
-       </div>
-       <div class="px-4 first:pl-0 sm:border-l border-border">
-        <p class="font-mono text-[27px] leading-tight tabular-nums">
-         2
-        </p>
-        <p class="mt-2 text-[11px] text-muted-foreground">
-         National fellowships
-        </p>
-        <p class="mt-1 font-mono text-[10px] text-muted-foreground">
-         STHP / STFS
-        </p>
-       </div>
-      </div>
-      <a class="mb-9 inline-flex items-center gap-2 text-[11px] text-muted-foreground hover:text-primary" href="#about">
-       Research, in context
-       <svg aria-hidden="true" class="lucide lucide-arrow-down size-3" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 5v14">
-        </path>
-        <path d="m19 12-7 7-7-7">
-        </path>
-       </svg>
-      </a>
-     </section>
-     <section class="academic-section" id="about">
-      <div class="grid gap-12 lg:grid-cols-[7fr_5fr]">
-       <div>
-        <p class="section-label mb-3">
-         01 / About
-        </p>
-        <h2 class="section-heading">
-         An engineering lens on AI.
-        </h2>
-        <div class="mt-6 space-y-4 text-muted-foreground">
-         <p>
-          I am an undergraduate in Computer Systems Engineering at
-          <a class="academic-link" href="https://www.iba-suk.edu.pk/" rel="noopener noreferrer" target="_blank">
-           Sukkur IBA University
-          </a>
-          , with an expected graduation in May 2027 and a cumulative GPA of 3.48/4.00.
-         </p>
-         <p>
-          My work centers on a practical question: how can language models remain capable, efficient, and reliable when data and compute are limited? I study parameter-efficient adaptation, model compression, and out-of-distribution robustness through the lens of real systems constraints.
-         </p>
-         <p>
-          I value reproducible experiments, clear evaluation protocols, and hardware-aware deep learning. Alongside independent research, I build applied AI systems—from document-grounded retrieval to agentic automation—connecting scientific questions with production experience.
-         </p>
-        </div>
-       </div>
-       <div class="lg:border-l lg:border-border lg:pl-10">
-        <p class="section-label mb-6">
-         Academic chronicle
-        </p>
-        <div class="space-y-6">
-         <div class="grid grid-cols-[74px_1fr] gap-3">
-          <p class="pt-0.5 font-mono text-[10px] text-muted-foreground">
-           2026
-          </p>
-          <div>
-           <h3 class="font-sans text-xs font-semibold leading-6">
-            50+ client solutions delivered
-           </h3>
-           <p class="mt-1 text-xs leading-6 text-muted-foreground">
-            Production AI, retrieval, and automation systems
-           </p>
-          </div>
-         </div>
-         <div class="grid grid-cols-[74px_1fr] gap-3">
-          <p class="pt-0.5 font-mono text-[10px] text-muted-foreground">
-           May 2025
-          </p>
-          <div>
-           <h3 class="font-sans text-xs font-semibold leading-6">
-            KPMG Australia internship
-           </h3>
-           <p class="mt-1 text-xs leading-6 text-muted-foreground">
-            Data analysis · Remote
-           </p>
-          </div>
-         </div>
-         <div class="grid grid-cols-[74px_1fr] gap-3">
-          <p class="pt-0.5 font-mono text-[10px] text-muted-foreground">
-           Aug 2023
-          </p>
-          <div>
-           <h3 class="font-sans text-xs font-semibold leading-6">
-            Began B.E. at Sukkur IBA
-           </h3>
-           <p class="mt-1 text-xs leading-6 text-muted-foreground">
-            Computer Systems Engineering · STHP &amp; STFS Scholar
-           </p>
-          </div>
-         </div>
-        </div>
-       </div>
-      </div>
-     </section>
-     <section class="academic-section" id="research">
-      <div class="mb-8 flex flex-wrap items-end justify-between gap-5">
-       <div>
-        <p class="section-label mb-3">
-         02 / Research program
-        </p>
-        <h2 class="section-heading">
-         Efficient learning. Broader discovery.
-        </h2>
-       </div>
-       <div aria-label="Research views" class="flex gap-5 border-b border-border" role="tablist">
-        <button aria-controls="panel-pillars" aria-selected="true" class="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-auto rounded-none border-b-2 px-0 py-3 text-xs sm:text-sm border-primary text-primary" data-tab="pillars" id="tab-pillars" role="tab">
-         <svg aria-hidden="true" class="lucide lucide-layers size-3.5" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z">
-          </path>
-          <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12">
-          </path>
-          <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17">
-          </path>
-         </svg>
-         Research Pillars
-        </button>
-        <button aria-controls="panel-explorer" aria-selected="false" class="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-auto rounded-none border-b-2 px-0 py-3 text-xs sm:text-sm border-transparent text-muted-foreground" data-tab="explorer" id="tab-explorer" role="tab">
-         <svg aria-hidden="true" class="lucide lucide-sliders-horizontal size-3.5" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M10 5H3">
-          </path>
-          <path d="M12 19H3">
-          </path>
-          <path d="M14 3v4">
-          </path>
-          <path d="M16 17v4">
-          </path>
-          <path d="M21 12h-9">
-          </path>
-          <path d="M21 19h-5">
-          </path>
-          <path d="M21 5h-7">
-          </path>
-          <path d="M8 10v4">
-          </path>
-          <path d="M8 12H3">
-          </path>
-         </svg>
-         PEFT Compute Explorer
-        </button>
-       </div>
-      </div>
-      <div aria-labelledby="tab-pillars" data-panel="pillars" id="panel-pillars" role="tabpanel">
-       <p class="mb-8 max-w-2xl text-muted-foreground">
-        My research interests span resource-efficient models, AI-driven scientific discovery, and foundation models that support scientific reasoning.
-       </p>
-       <div class="grid gap-8 md:grid-cols-3">
-        <article class="border-t border-border pt-5">
-         <span class="font-mono text-xs text-primary">
-          01
-         </span>
-         <h3 class="mt-4 max-w-xs text-2xl">
-          Efficient AI &amp; Model Compression
-         </h3>
-         <p class="mt-4 text-sm text-muted-foreground">
-          Making language models more accessible through compact architectures and efficient inference, without losing the representations that matter.
-         </p>
-         <p class="mt-5 text-xs leading-6 text-foreground">
-          Knowledge distillation · Pruning · 4-bit / 8-bit PTQ
-         </p>
-        </article>
-        <article class="border-t border-border pt-5">
-         <span class="font-mono text-xs text-primary">
-          02
-         </span>
-         <h3 class="mt-4 max-w-xs text-2xl">
-          AI for Science
-         </h3>
-         <p class="mt-4 text-sm text-muted-foreground">
-          Exploring how machine learning can support scientific discovery, model complex physical systems, and connect data-driven predictions with domain knowledge.
-         </p>
-         <p class="mt-5 text-xs leading-6 text-foreground">
-          Scientific machine learning · Physics-informed learning · Surrogate modeling
-         </p>
-        </article>
-        <article class="border-t border-border pt-5">
-         <span class="font-mono text-xs text-primary">
-          03
-         </span>
-         <h3 class="mt-4 max-w-xs text-2xl">
-          Foundation Models for Science
-         </h3>
-         <p class="mt-4 text-sm text-muted-foreground">
-          Exploring how pretrained models can support scientific reasoning, learn from heterogeneous scientific data, and assist with complex research tasks.
-         </p>
-         <p class="mt-5 text-xs leading-6 text-foreground">
-          Scientific foundation models · Multimodal learning · Scientific reasoning
-         </p>
-        </article>
-       </div>
-       <div class="mt-9 flex flex-wrap items-center justify-between gap-4 border-t border-border pt-5">
-        <p class="text-sm text-muted-foreground">
-         From parameter counts to practical compute constraints.
-        </p>
-        <button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 text-control text-sm" data-goto-explorer="">
-         Explore the PEFT calculator
-         <svg aria-hidden="true" class="lucide lucide-arrow-up-right" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M7 7h10v10">
-          </path>
-          <path d="M7 17 17 7">
-          </path>
-         </svg>
-        </button>
-       </div>
-      </div>
-      <div aria-labelledby="tab-explorer" data-panel="explorer" data-tsd-source="/src/components/ResearchProgram.tsx:11:5" hidden="" id="panel-explorer" role="tabpanel">
-       <div class="border border-border bg-card p-5 sm:p-8" data-tsd-source="/src/components/PeftExplorer.tsx:18:10">
-        <div class="mb-7 flex flex-wrap items-start justify-between gap-4" data-tsd-source="/src/components/PeftExplorer.tsx:19:5">
-         <div data-tsd-source="/src/components/PeftExplorer.tsx:19:76">
-          <h3 class="text-2xl" data-tsd-source="/src/components/PeftExplorer.tsx:19:81">
-           The cost of adaptation
-          </h3>
-          <p class="mt-2 text-sm text-muted-foreground" data-tsd-source="/src/components/PeftExplorer.tsx:19:133">
-           Illustrative LoRA parameter and memory estimates.
-          </p>
-         </div>
-         <span class="font-mono text-xs text-muted-foreground" data-tsd-source="/src/components/PeftExplorer.tsx:19:242">
-          W′ = W + BA
-         </span>
-        </div>
-        <div class="grid grid-cols-2 gap-5 lg:grid-cols-4" data-tsd-source="/src/components/PeftExplorer.tsx:20:5">
-         <label class="text-xs text-muted-foreground" data-tsd-source="/src/components/PeftExplorer.tsx:20:81">
-          Backbone parameters
-          <span class="relative mt-2 block" data-tsd-source="/src/components/PeftExplorer.tsx:20:161">
-           <select aria-label="Backbone parameters" class="h-11 w-full appearance-none rounded-sm border border-border bg-background px-3 pr-8 font-mono text-sm text-foreground" data-peft-select="model" data-tsd-source="/src/components/PeftExplorer.tsx:20:199">
-            <option data-tsd-source="/src/components/PeftExplorer.tsx:20:465" value="0">
-             1.1B
-            </option>
-            <option data-tsd-source="/src/components/PeftExplorer.tsx:20:465" value="1">
-             3.2B
-            </option>
-            <option data-tsd-source="/src/components/PeftExplorer.tsx:20:465" value="2">
-             8.0B
-            </option>
-            <option data-tsd-source="/src/components/PeftExplorer.tsx:20:465" value="3">
-             14.7B
-            </option>
-           </select>
-           <svg aria-hidden="true" class="lucide lucide-chevron-down pointer-events-none absolute right-3 top-3.5 size-3" data-tsd-source="/src/components/PeftExplorer.tsx:20:525" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-            <path d="m6 9 6 6 6-6">
-            </path>
-           </svg>
-          </span>
-         </label>
-         <label class="text-xs text-muted-foreground" data-tsd-source="/src/components/PeftExplorer.tsx:20:81">
-          Adapter rank r
-          <span class="relative mt-2 block" data-tsd-source="/src/components/PeftExplorer.tsx:20:161">
-           <select aria-label="Adapter rank r" class="h-11 w-full appearance-none rounded-sm border border-border bg-background px-3 pr-8 font-mono text-sm text-foreground" data-peft-select="rank" data-tsd-source="/src/components/PeftExplorer.tsx:20:199">
-            <option data-tsd-source="/src/components/PeftExplorer.tsx:20:465" value="0">
-             4
-            </option>
-            <option data-tsd-source="/src/components/PeftExplorer.tsx:20:465" value="1">
-             8
-            </option>
-            <option data-tsd-source="/src/components/PeftExplorer.tsx:20:465" value="2">
-             16
-            </option>
-            <option data-tsd-source="/src/components/PeftExplorer.tsx:20:465" value="3">
-             32
-            </option>
-            <option data-tsd-source="/src/components/PeftExplorer.tsx:20:465" value="4">
-             64
-            </option>
-           </select>
-           <svg aria-hidden="true" class="lucide lucide-chevron-down pointer-events-none absolute right-3 top-3.5 size-3" data-tsd-source="/src/components/PeftExplorer.tsx:20:525" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-            <path d="m6 9 6 6 6-6">
-            </path>
-           </svg>
-          </span>
-         </label>
-         <label class="text-xs text-muted-foreground" data-tsd-source="/src/components/PeftExplorer.tsx:20:81">
-          Target projections
-          <span class="relative mt-2 block" data-tsd-source="/src/components/PeftExplorer.tsx:20:161">
-           <select aria-label="Target projections" class="h-11 w-full appearance-none rounded-sm border border-border bg-background px-3 pr-8 font-mono text-sm text-foreground" data-peft-select="target" data-tsd-source="/src/components/PeftExplorer.tsx:20:199">
-            <option data-tsd-source="/src/components/PeftExplorer.tsx:20:465" value="0">
-             Q + V
-            </option>
-            <option data-tsd-source="/src/components/PeftExplorer.tsx:20:465" value="1">
-             All attention
-            </option>
-            <option data-tsd-source="/src/components/PeftExplorer.tsx:20:465" value="2">
-             All linear
-            </option>
-           </select>
-           <svg aria-hidden="true" class="lucide lucide-chevron-down pointer-events-none absolute right-3 top-3.5 size-3" data-tsd-source="/src/components/PeftExplorer.tsx:20:525" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-            <path d="m6 9 6 6 6-6">
-            </path>
-           </svg>
-          </span>
-         </label>
-         <label class="text-xs text-muted-foreground" data-tsd-source="/src/components/PeftExplorer.tsx:20:81">
-          Frozen-weight precision
-          <span class="relative mt-2 block" data-tsd-source="/src/components/PeftExplorer.tsx:20:161">
-           <select aria-label="Frozen-weight precision" class="h-11 w-full appearance-none rounded-sm border border-border bg-background px-3 pr-8 font-mono text-sm text-foreground" data-peft-select="precision" data-tsd-source="/src/components/PeftExplorer.tsx:20:199">
-            <option data-tsd-source="/src/components/PeftExplorer.tsx:20:465" value="0">
-             FP16
-            </option>
-            <option data-tsd-source="/src/components/PeftExplorer.tsx:20:465" value="1">
-             INT8
-            </option>
-            <option data-tsd-source="/src/components/PeftExplorer.tsx:20:465" value="2">
-             INT4
-            </option>
-           </select>
-           <svg aria-hidden="true" class="lucide lucide-chevron-down pointer-events-none absolute right-3 top-3.5 size-3" data-tsd-source="/src/components/PeftExplorer.tsx:20:525" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-            <path d="m6 9 6 6 6-6">
-            </path>
-           </svg>
-          </span>
-         </label>
-        </div>
-        <div aria-live="polite" class="my-8 grid gap-6 border-y border-border py-7 sm:grid-cols-3" data-tsd-source="/src/components/PeftExplorer.tsx:21:5">
-         <div data-tsd-source="/src/components/PeftExplorer.tsx:22:7">
-          <p class="section-label" data-tsd-source="/src/components/PeftExplorer.tsx:22:12">
-           Trainable parameters
-          </p>
-          <p class="mt-2 font-mono text-3xl tabular-nums" data-peft-out="trainable" data-testid="trainable" data-tsd-source="/src/components/PeftExplorer.tsx:22:65">
-           8.39
-           <span class="ml-1 text-base text-muted-foreground" data-tsd-source="/src/components/PeftExplorer.tsx:22:176">
-            M
-           </span>
-          </p>
-         </div>
-         <div data-tsd-source="/src/components/PeftExplorer.tsx:23:7">
-          <p class="section-label" data-tsd-source="/src/components/PeftExplorer.tsx:23:12">
-           Parameter reduction
-          </p>
-          <p class="mt-2 font-mono text-3xl tabular-nums text-primary" data-peft-out="reduction" data-tsd-source="/src/components/PeftExplorer.tsx:23:64">
-           99.90
-           <span class="text-base" data-tsd-source="/src/components/PeftExplorer.tsx:23:158">
-            %
-           </span>
-          </p>
-         </div>
-         <div data-tsd-source="/src/components/PeftExplorer.tsx:24:7">
-          <p class="section-label" data-tsd-source="/src/components/PeftExplorer.tsx:24:12">
-           Estimated PEFT VRAM
-          </p>
-          <p class="mt-2 font-mono text-3xl tabular-nums" data-peft-out="peftvram" data-tsd-source="/src/components/PeftExplorer.tsx:24:64">
-           6.6
-           <span class="ml-1 text-base text-muted-foreground" data-tsd-source="/src/components/PeftExplorer.tsx:24:144">
-            GiB
-           </span>
-          </p>
-         </div>
-        </div>
-        <div class="grid items-center gap-7 sm:grid-cols-[1fr_auto_1fr]" data-tsd-source="/src/components/PeftExplorer.tsx:26:5">
-         <div data-tsd-source="/src/components/PeftExplorer.tsx:27:7">
-          <div class="mb-2 flex justify-between gap-3 text-sm" data-tsd-source="/src/components/PeftExplorer.tsx:27:12">
-           <span data-tsd-source="/src/components/PeftExplorer.tsx:27:69">
-            Full fine-tuning · FP16 / Adam
-           </span>
-           <span class="font-mono tabular-nums" data-peft-out="fullvram" data-tsd-source="/src/components/PeftExplorer.tsx:27:112">
-            121.2 GiB
-           </span>
-          </div>
-          <div class="h-2 bg-muted" data-tsd-source="/src/components/PeftExplorer.tsx:27:198">
-           <div class="h-2 w-full bg-foreground/30" data-tsd-source="/src/components/PeftExplorer.tsx:27:228">
-           </div>
-          </div>
-          <p class="mt-2 text-xs text-muted-foreground" data-tsd-source="/src/components/PeftExplorer.tsx:27:281">
-           Multi-GPU memory budget
-          </p>
-         </div>
-         <svg aria-hidden="true" class="lucide lucide-arrow-right hidden size-4 text-muted-foreground sm:block" data-tsd-source="/src/components/PeftExplorer.tsx:28:7" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M5 12h14">
-          </path>
-          <path d="m12 5 7 7-7 7">
-          </path>
-         </svg>
-         <div data-tsd-source="/src/components/PeftExplorer.tsx:29:7">
-          <div class="mb-2 flex justify-between gap-3 text-sm" data-tsd-source="/src/components/PeftExplorer.tsx:29:12">
-           <span data-tsd-source="/src/components/PeftExplorer.tsx:29:69">
-            LoRA · INT4 backbone
-           </span>
-           <span class="font-mono tabular-nums" data-tsd-source="/src/components/PeftExplorer.tsx:29:109">
-            6.6 GiB
-           </span>
-          </div>
-          <div class="grid h-2 grid-cols-20 bg-muted" data-tsd-source="/src/components/PeftExplorer.tsx:29:195">
-           <span class="bg-primary" data-tsd-source="/src/components/PeftExplorer.tsx:29:276">
-           </span>
-           <span class="bg-primary" data-tsd-source="/src/components/PeftExplorer.tsx:29:276">
-           </span>
-           <span class="" data-tsd-source="/src/components/PeftExplorer.tsx:29:276">
-           </span>
-           <span class="" data-tsd-source="/src/components/PeftExplorer.tsx:29:276">
-           </span>
-           <span class="" data-tsd-source="/src/components/PeftExplorer.tsx:29:276">
-           </span>
-           <span class="" data-tsd-source="/src/components/PeftExplorer.tsx:29:276">
-           </span>
-           <span class="" data-tsd-source="/src/components/PeftExplorer.tsx:29:276">
-           </span>
-           <span class="" data-tsd-source="/src/components/PeftExplorer.tsx:29:276">
-           </span>
-           <span class="" data-tsd-source="/src/components/PeftExplorer.tsx:29:276">
-           </span>
-           <span class="" data-tsd-source="/src/components/PeftExplorer.tsx:29:276">
-           </span>
-           <span class="" data-tsd-source="/src/components/PeftExplorer.tsx:29:276">
-           </span>
-           <span class="" data-tsd-source="/src/components/PeftExplorer.tsx:29:276">
-           </span>
-           <span class="" data-tsd-source="/src/components/PeftExplorer.tsx:29:276">
-           </span>
-           <span class="" data-tsd-source="/src/components/PeftExplorer.tsx:29:276">
-           </span>
-           <span class="" data-tsd-source="/src/components/PeftExplorer.tsx:29:276">
-           </span>
-           <span class="" data-tsd-source="/src/components/PeftExplorer.tsx:29:276">
-           </span>
-           <span class="" data-tsd-source="/src/components/PeftExplorer.tsx:29:276">
-           </span>
-           <span class="" data-tsd-source="/src/components/PeftExplorer.tsx:29:276">
-           </span>
-           <span class="" data-tsd-source="/src/components/PeftExplorer.tsx:29:276">
-           </span>
-           <span class="" data-tsd-source="/src/components/PeftExplorer.tsx:29:276">
-           </span>
-          </div>
-          <p class="mt-2 text-xs text-muted-foreground" data-tsd-source="/src/components/PeftExplorer.tsx:29:394">
-           Within a 24 GiB consumer GPU budget
-          </p>
-         </div>
-        </div>
-        <details class="mt-7 border-t border-border pt-4 text-xs text-muted-foreground" data-tsd-source="/src/components/PeftExplorer.tsx:31:5">
-         <summary class="cursor-pointer text-foreground" data-tsd-source="/src/components/PeftExplorer.tsx:31:89">
-          Estimation assumptions &amp; limitations
-         </summary>
-         <div class="mt-3 space-y-2 leading-relaxed" data-tsd-source="/src/components/PeftExplorer.tsx:31:187">
-          <p data-tsd-source="/src/components/PeftExplorer.tsx:31:235">
-           Representative dense, non-GQA transformer: 32 layers, hidden width 4096, feed-forward width 14336. Not a named checkpoint. Q/V: 4Ldr; attention: 8Ldr; all linear: Lr[8d + 3(d + f)]. Embeddings and output head are excluded.
-          </p>
-          <p data-tsd-source="/src/components/PeftExplorer.tsx:31:501">
-           LoRA adapters remain mixed precision. Memory uses frozen weights × 1.2 for overhead, 16 bytes per trainable parameter for Adam-style training, and a fixed 2 GiB activation allowance. Full fine-tuning uses 16 bytes per backbone parameter + 2 GiB. 1 GiB = 2³⁰ bytes.
-          </p>
-          <p data-tsd-source="/src/components/PeftExplorer.tsx:31:772">
-           These are planning estimates, not measured performance. Sequence length, batch size, checkpointing, grouped-query attention, kernels, and quantization metadata change actual requirements. Parameter reduction is not VRAM reduction; 99.8% is not guaranteed.
-          </p>
-         </div>
-        </details>
-       </div>
-      </div>
-     </section>
-     <section class="academic-section" id="publications">
-      <div class="mb-8 flex flex-wrap items-end justify-between gap-4">
-       <div>
-        <p class="section-label mb-3">
-         03 / Publications
-        </p>
-        <h2 class="section-heading">
-         Published research.
-        </h2>
-       </div>
-       <span class="font-mono text-[11px] text-muted-foreground">
-        01 peer-reviewed article
-       </span>
-      </div>
-      <article class="grid gap-5 sm:grid-cols-[45px_1fr]">
-       <span class="pt-1 font-mono text-xs text-primary">
-        [1]
-       </span>
-       <div>
-        <p class="mb-3 text-xs text-muted-foreground">
-         Machine Learning / NLP Systems · Peer-Reviewed Journal Publication
-        </p>
-        <h3 class="max-w-3xl text-[27px] italic leading-[1.3]">
-         Energy-Efficient NLP Through Tiny-Model Distillation, Pruning, and Quantized Inference
-        </h3>
-        <p class="mt-4 text-sm">
-         <span class="font-semibold">
-          Hamadullah Bijarani
-         </span>
-         <span class="text-muted-foreground">
-          · Kashf Journal of Multidisciplinary Research (KJMR), 2026
-         </span>
-        </p>
-        <p class="mt-2 text-xs text-muted-foreground">
-         Model Compression / Quantization
-        </p>
-        <div class="mt-5 flex flex-wrap gap-x-6 gap-y-3 text-xs">
-         <a class="academic-link inline-flex items-center gap-1" href="https://kjmr.ac.pk/kjmr/article/view/965" rel="noopener noreferrer" target="_blank">
-          Journal link
-          <svg aria-hidden="true" class="lucide lucide-arrow-up-right size-3" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-           <path d="M7 7h10v10">
-           </path>
-           <path d="M7 17 17 7">
-           </path>
-          </svg>
-         </a>
-         <button aria-controls="paper-abstract" aria-expanded="false" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 text-control text-xs" data-abstract-toggle="">
-          View abstract
-          <svg aria-hidden="true" class="lucide lucide-chevron-down size-3 transition-transform" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-           <path d="m6 9 6 6 6-6">
-           </path>
-          </svg>
-         </button>
-         <button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 text-control text-xs" data-open-dialog="bibtex-dialog">
-          BibTeX
-         </button>
-         <span class="inline-flex max-w-full items-center gap-2">
-          <button class="inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 text-control whitespace-normal text-left" data-copy="" title="Copy citation">
-           Copy citation
-          </button>
-          <span class="text-xs text-primary" role="status">
-          </span>
-         </span>
-        </div>
-        <div class="mt-6 border-t border-border pt-5" data-tsd-source="/src/routes/index.tsx:56:1307" hidden="" id="paper-abstract">
-         <p class="section-label mb-3" data-tsd-source="/src/routes/index.tsx:56:1377">
-          Abstract
-         </p>
-         <p class="max-w-3xl text-sm leading-7 text-muted-foreground" data-tsd-source="/src/routes/index.tsx:56:1423">
-          Transformer models achieve state-of-the-art NLP performance but face deployment constraints due to high inference energy costs. Numerous techniques have been proposed to optimize model operations. Due to limitations of hardware and time, we analyzed a few of them, which are knowledge distillation, unstructured pruning, and quantization within a unified pipeline for BERT and TinyBERT. Results demonstrate that the Distilled Student serves as the dominant baseline, offering the lowest energy per sample among all variants. Conversely, while post-training quantization and pruning reduce model size, they introduce significant kernel overheads on GPUs. Notably, combining INT8 quantization with aggressive pruning results in severe latency penalties, causing up to a 4× increase in energy consumption compared to the standard Student. These findings underscore the critical disparity between theoretical compression metrics and hardware-realized energy efficiency.
-         </p>
-        </div>
-       </div>
-      </article>
-     </section>
-     <section class="academic-section" id="projects">
-      <p class="section-label mb-3">
-       04 / Selected AI systems
-      </p>
-      <div class="mb-5 flex flex-wrap items-end justify-between gap-4">
-       <h2 class="section-heading">
-        Research ideas, working systems.
-       </h2>
-       <a class="academic-link inline-flex items-center gap-1 text-xs" href="https://github.com/hamadbijarani?tab=repositories" rel="noopener noreferrer" target="_blank">
-        All repositories
-        <svg aria-hidden="true" class="lucide lucide-arrow-up-right size-3" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-         <path d="M7 7h10v10">
-         </path>
-         <path d="M7 17 17 7">
-         </path>
-        </svg>
-       </a>
-      </div>
-      <div aria-label="System categories" class="mb-7 flex flex-wrap gap-x-7 gap-y-2 border-b border-border">
-       <button aria-pressed="true" class="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-auto rounded-none border-b-2 px-0 py-3 text-xs border-primary text-primary" data-filter="All Systems">
-        All Systems
-       </button>
-       <button aria-pressed="false" class="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-auto rounded-none border-b-2 px-0 py-3 text-xs border-transparent text-muted-foreground" data-filter="RAG &amp; NLP">
-        RAG &amp; NLP
-       </button>
-       <button aria-pressed="false" class="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-auto rounded-none border-b-2 px-0 py-3 text-xs border-transparent text-muted-foreground" data-filter="Deep Learning">
-        Deep Learning
-       </button>
-       <button aria-pressed="false" class="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-auto rounded-none border-b-2 px-0 py-3 text-xs border-transparent text-muted-foreground" data-filter="Agentic Orchestration">
-        Agentic Orchestration
-       </button>
-      </div>
-      <div class="grid gap-x-10 md:grid-cols-2">
-       <article class="flex flex-col border-b border-border py-7" data-category="RAG &amp; NLP">
-        <div class="flex justify-between gap-4">
-         <span class="font-mono text-xs text-muted-foreground">
-          01
-         </span>
-         <span class="text-xs text-muted-foreground">
-          RAG &amp; NLP
-         </span>
-        </div>
-        <h3 class="mt-4 text-2xl">
-         Multi-Document Retrieval-Augmented Generation Architecture
-        </h3>
-        <p class="mt-4 text-sm text-muted-foreground">
-         A document-grounded question-answering pipeline spanning PDF parsing, chunking, embeddings, vector similarity search, and language-model generation.
-        </p>
-        <p class="mb-5 mt-5 font-mono text-[11px] leading-6 text-muted-foreground">
-         Python · LangChain · FAISS · OpenAI API · Streamlit
-        </p>
-        <a class="academic-link mt-auto inline-flex items-center gap-1 text-xs" href="https://github.com/hamadbijarani/Multiple-PDF-RAG-Chatbot" rel="noopener noreferrer" target="_blank">
-         GitHub source
-         <svg aria-hidden="true" class="lucide lucide-arrow-up-right size-3.5" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M7 7h10v10">
-          </path>
-          <path d="M7 17 17 7">
-          </path>
-         </svg>
-        </a>
-       </article>
-       <article class="flex flex-col border-b border-border py-7" data-category="RAG &amp; NLP">
-        <div class="flex justify-between gap-4">
-         <span class="font-mono text-xs text-muted-foreground">
-          02
-         </span>
-         <span class="text-xs text-muted-foreground">
-          RAG &amp; NLP
-         </span>
-        </div>
-        <h3 class="mt-4 text-2xl">
-         Adaptive AI Study Coach &amp; Semantic Memory Engine
-        </h3>
-        <p class="mt-4 text-sm text-muted-foreground">
-         An AI-assisted learning system with semantic retrieval, conversational question answering, quizzes, and flashcards. Developed as team lead at the PEC Generative AI Hackathon.
-        </p>
-        <p class="mb-5 mt-5 font-mono text-[11px] leading-6 text-muted-foreground">
-         Python · Vector retrieval · SQLite · Streamlit
-        </p>
-        <a class="academic-link mt-auto inline-flex items-center gap-1 text-xs" href="https://github.com/hamadbijarani/AI-Study-Coach" rel="noopener noreferrer" target="_blank">
-         GitHub source
-         <svg aria-hidden="true" class="lucide lucide-arrow-up-right size-3.5" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M7 7h10v10">
-          </path>
-          <path d="M7 17 17 7">
-          </path>
-         </svg>
-        </a>
-       </article>
-       <article class="flex flex-col border-b border-border py-7" data-category="Deep Learning">
-        <div class="flex justify-between gap-4">
-         <span class="font-mono text-xs text-muted-foreground">
-          03
-         </span>
-         <span class="text-xs text-muted-foreground">
-          Deep Learning
-         </span>
-        </div>
-        <h3 class="mt-4 text-2xl">
-         High-Throughput Sentiment Classifier
-        </h3>
-        <p class="mt-4 text-sm text-muted-foreground">
-         Sentiment classification across 100,000+ customer reviews, bringing together pretrained embeddings, recurrent modeling, preprocessing, and model evaluation.
-        </p>
-        <p class="mb-5 mt-5 font-mono text-[11px] leading-6 text-muted-foreground">
-         Python · LSTM · Pretrained embeddings · NLP
-        </p>
-        <a class="academic-link mt-auto inline-flex items-center gap-1 text-xs" href="https://github.com/hamadbijarani/Sentiment-Analysis-using-LSTM" rel="noopener noreferrer" target="_blank">
-         GitHub source
-         <svg aria-hidden="true" class="lucide lucide-arrow-up-right size-3.5" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M7 7h10v10">
-          </path>
-          <path d="M7 17 17 7">
-          </path>
-         </svg>
-        </a>
-       </article>
-       <article class="flex flex-col border-b border-border py-7" data-category="Agentic Orchestration">
-        <div class="flex justify-between gap-4">
-         <span class="font-mono text-xs text-muted-foreground">
-          04
-         </span>
-         <span class="text-xs text-muted-foreground">
-          Agentic Orchestration
-         </span>
-        </div>
-        <h3 class="mt-4 text-2xl">
-         Autonomous Agent Orchestration &amp; Tool-Calling Systems
-        </h3>
-        <p class="mt-4 text-sm text-muted-foreground">
-         Production AI workflows delivered for 50+ clients, covering tool-calling agents, document processing, API integrations, and automated business processes.
-        </p>
-        <p class="mb-5 mt-5 font-mono text-[11px] leading-6 text-muted-foreground">
-         Python · LLM APIs · FastAPI · n8n · REST APIs
-        </p>
-        <a class="academic-link mt-auto inline-flex items-center gap-1 text-xs" href="https://github.com/hamadbijarani?tab=repositories" rel="noopener noreferrer" target="_blank">
-         GitHub repositories
-         <svg aria-hidden="true" class="lucide lucide-arrow-up-right size-3.5" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M7 7h10v10">
-          </path>
-          <path d="M7 17 17 7">
-          </path>
-         </svg>
-        </a>
-       </article>
-      </div>
-     </section>
-     <section class="academic-section" id="experience">
-      <p class="section-label mb-3">
-       05 / Education &amp; experience
-      </p>
-      <h2 class="section-heading mb-9">
-       Academic foundations. Applied practice.
-      </h2>
-      <ol class="space-y-9">
-       <li class="grid gap-3 sm:grid-cols-[180px_1fr]">
-        <p class="pt-1 font-mono text-[11px] text-muted-foreground">
-         Aug 2023 — May 2027
-        </p>
-        <div class="relative border-l border-border pl-6">
-         <span class="absolute -left-[3px] top-2 size-[5px] rounded-full bg-primary">
-         </span>
-         <h3 class="text-2xl">
-          Sukkur IBA University
-         </h3>
-         <p class="mt-2 text-sm">
-          B.E. Computer Systems Engineering
-         </p>
-         <p class="mt-2 max-w-2xl text-sm text-muted-foreground">
-          CGPA 3.48/4.00 · STHP &amp; STFS Scholar · Expected graduation May 2027
-         </p>
-        </div>
-       </li>
-       <li class="grid gap-3 sm:grid-cols-[180px_1fr]">
-        <p class="pt-1 font-mono text-[11px] text-muted-foreground">
-         2026 — Present
-        </p>
-        <div class="relative border-l border-border pl-6">
-         <span class="absolute -left-[3px] top-2 size-[5px] rounded-full bg-primary">
-         </span>
-         <h3 class="text-2xl">
-          Independent AI Researcher
-         </h3>
-         <p class="mt-2 text-sm">
-          Natural language processing &amp; efficient AI
-         </p>
-         <p class="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Self-directed research in language models, model compression, parameter-efficient fine-tuning, and low-resource learning.
-         </p>
-        </div>
-       </li>
-       <li class="grid gap-3 sm:grid-cols-[180px_1fr]">
-        <p class="pt-1 font-mono text-[11px] text-muted-foreground">
-         2026 — Present
-        </p>
-        <div class="relative border-l border-border pl-6">
-         <span class="absolute -left-[3px] top-2 size-[5px] rounded-full bg-primary">
-         </span>
-         <h3 class="text-2xl">
-          Freelance AI Automation &amp; Agent Engineer
-         </h3>
-         <p class="mt-2 text-sm">
-          Applied AI systems &amp; orchestration
-         </p>
-         <p class="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Delivered AI, automation, and software solutions for 50+ clients across RAG, LLM applications, and tool-calling workflows.
-         </p>
-        </div>
-       </li>
-       <li class="grid gap-3 sm:grid-cols-[180px_1fr]">
-        <p class="pt-1 font-mono text-[11px] text-muted-foreground">
-         May — Jun 2025
-        </p>
-        <div class="relative border-l border-border pl-6">
-         <span class="absolute -left-[3px] top-2 size-[5px] rounded-full bg-primary">
-         </span>
-         <h3 class="text-2xl">
-          KPMG Australia
-         </h3>
-         <p class="mt-2 text-sm">
-          Data Analyst Intern · Remote
-         </p>
-         <p class="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Developed Tableau dashboards, performed statistical analysis for reporting and decision support, and automated routine data processing.
-         </p>
-        </div>
-       </li>
-      </ol>
-     </section>
-     <section class="academic-section" id="skills">
-      <p class="section-label mb-3">
-       06 / Technical arsenal &amp; honors
-      </p>
-      <h2 class="section-heading mb-8">
-       Tools of the work.
-      </h2>
-      <div class="grid gap-8 sm:grid-cols-3">
-       <div>
-        <h3 class="border-b border-border pb-4 font-sans text-xs font-semibold">
-         Programming
-        </h3>
-        <ul class="mt-4 space-y-2 text-sm text-muted-foreground">
-         <li>
-          Python (Advanced)
-         </li>
-         <li>
-          C / C++
-         </li>
-         <li>
-          CUDA · SQL · MATLAB
-         </li>
-         <li>
-          Bash / Linux · LaTeX
-         </li>
-        </ul>
-       </div>
-       <div>
-        <h3 class="border-b border-border pb-4 font-sans text-xs font-semibold">
-         ML &amp; Deep Learning
-        </h3>
-        <ul class="mt-4 space-y-2 text-sm text-muted-foreground">
-         <li>
-          PyTorch
-         </li>
-         <li>
-          Hugging Face Transformers
-         </li>
-         <li>
-          TensorFlow / Keras · Scikit-Learn
-         </li>
-         <li>
-          NumPy · OpenCV
-         </li>
-        </ul>
-       </div>
-       <div>
-        <h3 class="border-b border-border pb-4 font-sans text-xs font-semibold">
-         NLP &amp; Infrastructure
-        </h3>
-        <ul class="mt-4 space-y-2 text-sm text-muted-foreground">
-         <li>
-          PEFT · LoRA / DoRA
-         </li>
-         <li>
-          Distillation · Quantization · RAG
-         </li>
-         <li>
-          Docker · FastAPI
-         </li>
-         <li>
-          Git · Linux
-         </li>
-        </ul>
-       </div>
-      </div>
-      <div class="mt-10 grid gap-5 border-t border-border pt-7 sm:grid-cols-[180px_1fr]">
-       <p class="section-label">
-        Scholarships &amp; honors
-       </p>
-       <ul class="space-y-3 text-sm">
-        <li class="flex gap-4">
-         <span class="font-mono text-[10px] text-primary">
-          01
-         </span>
-         <span>
-          Sukkur IBA STHP Merit Scholarship
-         </span>
-        </li>
-        <li class="flex gap-4">
-         <span class="font-mono text-[10px] text-primary">
-          02
-         </span>
-         <span>
-          PSF Science Talent Farming Scheme (STFS) National Scholarship
-         </span>
-        </li>
-        <li class="flex gap-4">
-         <span class="font-mono text-[10px] text-primary">
-          03
-         </span>
-         <span>
-          Team Lead, PEC Generative AI Hackathon
-         </span>
-        </li>
-        <li class="flex gap-4">
-         <span class="font-mono text-[10px] text-primary">
-          04
-         </span>
-         <span>
-          DeepLearning.AI Machine Learning &amp; Deep Learning Specializations
-         </span>
-        </li>
-        <li class="flex gap-4">
-         <span class="font-mono text-[10px] text-primary">
-          05
-         </span>
-         <span>
-          Harvard CS50 / CS50’s Introduction to Artificial Intelligence
-         </span>
-        </li>
-       </ul>
-      </div>
-     </section>
-     <footer class="flex flex-wrap items-center justify-between gap-4 border-t border-border py-7 text-[10px] text-muted-foreground">
-      <p>
-       Hamadullah Bijarani · Sukkur IBA University
-       <br class="sm:hidden"/>
-       <span class="hidden sm:inline">
-        ·
-       </span>
-       Last revised October 2026
-      </p>
-      <div class="flex items-center gap-4">
-       <a class="hover:text-primary" href="https://github.com/hamadbijarani" rel="noopener noreferrer" target="_blank">
-        GitHub
-       </a>
-       <a class="hover:text-primary" href="https://www.linkedin.com/in/hamadullah-bijarani/" rel="noopener noreferrer" target="_blank">
-        LinkedIn
-       </a>
-       <a aria-label="Scroll to top" class="p-2 hover:text-primary" href="#top" title="Back to top">
-        <svg aria-hidden="true" class="lucide lucide-arrow-up size-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-         <path d="m5 12 7-7 7 7">
-         </path>
-         <path d="M12 19V5">
-         </path>
-        </svg>
-       </a>
-      </div>
-     </footer>
-    </main>
-   </div>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hamadullah Bijarani — AI Research &amp; Computer Systems Engineering</title>
+  <meta name="description" content="Academic portfolio of Hamadullah Bijarani at Sukkur IBA University. Research interests in efficient AI and model compression, AI for science, and foundation models for science.">
+  <meta property="og:title" content="Hamadullah Bijarani — AI Research &amp; Computer Systems Engineering">
+  <meta property="og:description" content="Efficient AI, AI for science, and foundation models for science.">
+  <meta property="og:type" content="profile">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,16..72,400;0,16..72,500;1,16..72,400&family=Plus+Jakarta+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body id="top">
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="#top">Hamadullah Bijarani</a>
+    <nav aria-label="Main">
+      <a href="#research">Research</a>
+      <a href="#publications">Publications</a>
+      <a href="#projects">Projects</a>
+      <a href="#experience">Experience</a>
+      <a href="assets/Hamadullah-Bijarani-CV.pdf">CV</a>
+    </nav>
   </div>
-  <!--/$-->
-  <dialog aria-describedby="radix-_R_3aqH2_" aria-labelledby="radix-_R_3aqH1_" class="fixed left-[50%] top-[50%] z-50 grid translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg dialog-surface max-h-[85vh] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto p-7 sm:p-9" data-tsd-source="/src/components/AcademicModals.tsx:6:59" id="bibtex-dialog">
-   <h2 class="font-semibold tracking-tight font-serif text-3xl" data-tsd-source="/src/components/AcademicModals.tsx:6:171" id="radix-_R_3aqH1_">
-    Bibliographic reference
-   </h2>
-   <p class="text-sm text-muted-foreground" data-tsd-source="/src/components/AcademicModals.tsx:6:253" id="radix-_R_3aqH2_">
-    Energy-Efficient NLP · KJMR, 2026
-   </p>
-   <pre class="my-3 overflow-x-auto border border-border bg-muted p-5 font-mono text-xs leading-7" data-tsd-source="/src/components/AcademicModals.tsx:6:325"><code data-tsd-source="/src/components/AcademicModals.tsx:6:425">@article{bijarani2026energyefficient,
+</header>
+
+<main class="wrap">
+
+  <section class="intro" id="about">
+    <img src="assets/hamadullah-bijarani.jpg" width="112" height="112" alt="Hamadullah Bijarani">
+    <div>
+      <h1>Hamadullah Bijarani</h1>
+      <p class="muted">Computer Systems Engineering undergraduate &amp; independent AI researcher<br>
+        <a href="https://www.iba-suk.edu.pk/">Sukkur IBA University</a>, Sindh, Pakistan</p>
+    </div>
+  </section>
+
+  <section aria-label="About">
+    <p>I study how language models can stay capable, efficient, and reliable when data and compute are limited: parameter-efficient adaptation, model compression, and out-of-distribution robustness, approached through real systems constraints.</p>
+    <p>I value reproducible experiments, clear evaluation protocols, and hardware-aware deep learning. Alongside research, I build applied AI systems, from document-grounded retrieval to agentic automation.</p>
+    <div class="links">
+      <a href="mailto:hamadullahkhanbijarani@gmail.com">Email</a>
+      <a href="https://github.com/hamadbijarani">GitHub</a>
+      <a href="https://www.linkedin.com/in/hamadullah-bijarani/">LinkedIn</a>
+      <a href="https://scholar.google.com/citations?user=tfdjEF0AAAAJ&amp;hl=en&amp;inst=645383205921872">Google Scholar</a>
+      <a href="https://www.researchgate.net/profile/Hamadullah-Bijarani">ResearchGate</a>
+      <a href="https://orcid.org/0009-0007-9151-6633">ORCID</a>
+      <a href="https://huggingface.co/hamadbijarani012">Hugging Face</a>
+    </div>
+  </section>
+
+  <section id="research">
+    <h2>Research</h2>
+    <ul class="entries">
+      <li>
+        <span class="title">Efficient AI &amp; model compression</span>
+        <p>Making language models more accessible through compact architectures and efficient inference, without losing the representations that matter.</p>
+        <p class="mono">Knowledge distillation · Pruning · 4-bit / 8-bit PTQ</p>
+      </li>
+      <li>
+        <span class="title">AI for science</span>
+        <p>How machine learning can support scientific discovery, model complex physical systems, and connect data-driven predictions with domain knowledge.</p>
+        <p class="mono">Scientific ML · Physics-informed learning · Surrogate modeling</p>
+      </li>
+      <li>
+        <span class="title">Foundation models for science</span>
+        <p>How pretrained models can support scientific reasoning, learn from heterogeneous scientific data, and assist with complex research tasks.</p>
+        <p class="mono">Scientific foundation models · Multimodal learning · Scientific reasoning</p>
+      </li>
+    </ul>
+    <p class="small"><a href="peft-explorer.html">Try the PEFT compute explorer →</a></p>
+  </section>
+
+  <section id="publications">
+    <h2>Publications</h2>
+    <ul class="entries">
+      <li>
+        <span class="title">Energy-Efficient NLP Through Tiny-Model Distillation, Pruning, and Quantized Inference</span>
+        <p>Hamadullah Bijarani · <em>Kashf Journal of Multidisciplinary Research</em> (KJMR), 2026 · <a href="https://kjmr.ac.pk/kjmr/article/view/965">Journal link</a></p>
+        <details>
+          <summary>Abstract</summary>
+          <div>Transformer models achieve state-of-the-art NLP performance but face deployment constraints due to high inference energy costs. Numerous techniques have been proposed to optimize model operations. Due to limitations of hardware and time, we analyzed a few of them, which are knowledge distillation, unstructured pruning, and quantization within a unified pipeline for BERT and TinyBERT. Results demonstrate that the Distilled Student serves as the dominant baseline, offering the lowest energy per sample among all variants. Conversely, while post-training quantization and pruning reduce model size, they introduce significant kernel overheads on GPUs. Notably, combining INT8 quantization with aggressive pruning results in severe latency penalties, causing up to a 4× increase in energy consumption compared to the standard Student. These findings underscore the critical disparity between theoretical compression metrics and hardware-realized energy efficiency.</div>
+        </details>
+        <details>
+          <summary>BibTeX</summary>
+<pre>@article{bijarani2026energyefficient,
   author  = {Bijarani, Hamadullah},
   title   = {Energy-Efficient NLP Through Tiny-Model Distillation, Pruning, and Quantized Inference},
   journal = {Kashf Journal of Multidisciplinary Research},
   year    = {2026},
   url     = {https://kjmr.ac.pk/kjmr/article/view/965}
-}</code></pre>
-   <div data-tsd-source="/src/components/AcademicModals.tsx:6:452">
-    <span class="inline-flex max-w-full items-center gap-2" data-tsd-source="/src/components/CopyButton.tsx:18:10">
-     <button class="inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 text-control whitespace-normal text-left" data-copy="@article{bijarani2026energyefficient,
-  author  = {Bijarani, Hamadullah},
-  title   = {Energy-Efficient NLP Through Tiny-Model Distillation, Pruning, and Quantized Inference},
-  journal = {Kashf Journal of Multidisciplinary Research},
-  year    = {2026},
-  url     = {https://kjmr.ac.pk/kjmr/article/view/965}
-}" data-tsd-source="/src/components/CopyButton.tsx:19:5" title="Copy BibTeX">
-      Copy BibTeX
-     </button>
-     <span class="text-xs text-primary" data-tsd-source="/src/components/CopyButton.tsx:22:5" role="status">
-     </span>
-    </span>
-   </div>
-   <button class="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background cursor-pointer transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground" type="button">
-    <svg aria-hidden="true" class="lucide lucide-x h-4 w-4" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-     <path d="M18 6 6 18">
-     </path>
-     <path d="m6 6 12 12">
-     </path>
-    </svg>
-    <span class="sr-only">
-     Close
-    </span>
-   </button>
-   <button class="text-control mt-4 text-sm" data-dialog-close="" type="button">
-    Close
-   </button>
-  </dialog>
-  <dialog class="dialog-surface" id="nav-dialog">
-   <div class="flex flex-col gap-4 p-7">
-    <a class="academic-link text-lg" href="#about">
-     About
-    </a>
-    <a class="academic-link text-lg" href="#research">
-     Research
-    </a>
-    <a class="academic-link text-lg" href="#publications">
-     Publications
-    </a>
-    <a class="academic-link text-lg" href="#projects">
-     Projects
-    </a>
-    <a class="academic-link text-lg" href="#experience">
-     Experience
-    </a>
-    <button class="text-control mt-2 text-sm" data-dialog-close="" type="button">
-     Close
-    </button>
-   </div>
-  </dialog>
-  <script defer="True" src="script.js">
-  </script>
- </body>
+}</pre>
+        </details>
+      </li>
+    </ul>
+  </section>
+
+  <section id="projects">
+    <h2>Projects</h2>
+
+    <h4>Selected AI systems</h4>
+    <ul class="entries">
+      <li>
+        <a class="title" href="https://github.com/hamadbijarani/Multiple-PDF-RAG-Chatbot">Multi-document retrieval-augmented generation</a>
+        <p>Document-grounded question answering: PDF parsing, chunking, embeddings, vector search, and LLM generation.</p>
+        <p class="mono">Python · LangChain · FAISS · OpenAI API · Streamlit</p>
+      </li>
+      <li>
+        <a class="title" href="https://github.com/hamadbijarani/AI-Study-Coach">Adaptive AI study coach</a>
+        <p>Semantic retrieval, conversational Q&amp;A, quizzes, and flashcards. Built as team lead at the PEC Generative AI Hackathon.</p>
+        <p class="mono">Python · Vector retrieval · SQLite · Streamlit</p>
+      </li>
+      <li>
+        <a class="title" href="https://github.com/hamadbijarani/Sentiment-Analysis-using-LSTM">High-throughput sentiment classifier</a>
+        <p>Sentiment classification over 100,000+ customer reviews with pretrained embeddings and recurrent modeling.</p>
+        <p class="mono">Python · LSTM · Pretrained embeddings · NLP</p>
+      </li>
+      <li>
+        <a class="title" href="https://github.com/hamadbijarani?tab=repositories">Agent orchestration &amp; tool-calling systems</a>
+        <p>Production workflows for 50+ clients: tool-calling agents, document processing, API integrations, business automation.</p>
+        <p class="mono">Python · LLM APIs · FastAPI · n8n · REST APIs</p>
+      </li>
+    </ul>
+
+    <!-- Everything between the markers below is generated by tools/build_projects.py.
+         Do not edit by hand: add a page under projects/sem-N/ instead. -->
+    <h3>Semester projects</h3>
+    <!-- projects:start -->
+<h4>Semester 7</h4>
+<ul class="entries">
+<li><a class="title" href="projects/sem-7/dsd8-processor.html">DSD-8: an 8-bit processor with a neural-network accelerator</a>
+<p>Interactive guide to DSD-8, a from-scratch 8-bit processor in Verilog with an int8 neural-network accelerator: 39.7x faster, 22/23 flowers classified, 230/230 verified runs.</p>
+</li>
+</ul>
+    <!-- projects:end -->
+
+    <p class="small"><a href="https://github.com/hamadbijarani?tab=repositories">All repositories →</a></p>
+  </section>
+
+  <section id="experience">
+    <h2>Education &amp; experience</h2>
+    <ol class="timeline">
+      <li>
+        <span class="mono">Aug 2023 — May 2027</span>
+        <div>
+          <h3>Sukkur IBA University</h3>
+          <p>B.E. Computer Systems Engineering · CGPA 3.48/4.00 · STHP &amp; STFS scholar · expected graduation May 2027</p>
+        </div>
+      </li>
+      <li>
+        <span class="mono">2026 — present</span>
+        <div>
+          <h3>Independent AI researcher</h3>
+          <p>Self-directed research in language models, model compression, parameter-efficient fine-tuning, and low-resource learning.</p>
+        </div>
+      </li>
+      <li>
+        <span class="mono">2026 — present</span>
+        <div>
+          <h3>Freelance AI automation &amp; agent engineer</h3>
+          <p>AI, automation, and software solutions for 50+ clients across RAG, LLM applications, and tool-calling workflows.</p>
+        </div>
+      </li>
+      <li>
+        <span class="mono">May — Jun 2025</span>
+        <div>
+          <h3>KPMG Australia</h3>
+          <p>Data analyst intern (remote). Tableau dashboards, statistical analysis for reporting, and automation of routine data processing.</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section id="skills">
+    <h2>Skills &amp; honors</h2>
+    <div class="skills">
+      <div>
+        <h3>Programming</h3>
+        <ul><li>Python (advanced)</li><li>C / C++</li><li>CUDA · SQL · MATLAB</li><li>Bash · LaTeX</li></ul>
+      </div>
+      <div>
+        <h3>ML &amp; deep learning</h3>
+        <ul><li>PyTorch</li><li>Hugging Face Transformers</li><li>TensorFlow / Keras · scikit-learn</li><li>NumPy · OpenCV</li></ul>
+      </div>
+      <div>
+        <h3>NLP &amp; infrastructure</h3>
+        <ul><li>PEFT · LoRA / DoRA</li><li>Distillation · Quantization · RAG</li><li>Docker · FastAPI</li><li>Git · Linux</li></ul>
+      </div>
+    </div>
+    <ul class="honors">
+      <li>Sukkur IBA STHP Merit Scholarship</li>
+      <li>PSF Science Talent Farming Scheme (STFS) National Scholarship</li>
+      <li>Team Lead, PEC Generative AI Hackathon</li>
+      <li>DeepLearning.AI ML &amp; Deep Learning Specializations · Harvard CS50 &amp; CS50’s Introduction to AI</li>
+    </ul>
+  </section>
+
+</main>
+
+<footer class="wrap">Hamadullah Bijarani · Sukkur IBA University · <a href="#top">Back to top</a></footer>
+
+</body>
 </html>
