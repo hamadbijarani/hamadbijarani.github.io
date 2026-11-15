@@ -19,7 +19,7 @@ a{color:var(--acc);text-underline-offset:3px}ul{list-style:none}
 /* page = sidebar + content */
 .page{display:grid;gap:28px;max-width:1180px;margin:0 auto;padding:28px 20px 40px}
 .author{font-size:14px}
-.author img{display:block;width:100%;max-width:200px;aspect-ratio:4/5;object-fit:cover;border-radius:8px;border:3px solid var(--card);box-shadow:0 0 0 1px var(--line)}
+.author img{display:block;width:100%;max-width:200px;aspect-ratio:4/5;object-fit:cover;border-radius:0;border:3px solid var(--card);box-shadow:0 0 0 1px var(--line)}
 .author h1{font-size:26px;margin:14px 0 4px}
 .bio{color:var(--muted);margin-bottom:10px}
 .loc{font-size:13px;color:var(--muted);margin-bottom:12px}
