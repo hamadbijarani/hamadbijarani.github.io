@@ -16,7 +16,7 @@
 <body id="top">
 
 <header class="site-header">
-  <div class="wrap">
+  <div class="wrap wide">
     <a class="brand" href="#top">Hamadullah Bijarani</a>
     <nav aria-label="Main">
       <a href="#research">Research</a>
@@ -24,24 +24,18 @@
       <a href="#projects">Projects</a>
       <a href="#experience">Experience</a>
       <a href="assets/Hamadullah-Bijarani-CV.pdf">CV</a>
+      <button class="theme" type="button" data-theme-toggle aria-label="Toggle light and dark mode">Dark mode</button>
     </nav>
   </div>
 </header>
 
-<main class="wrap">
+<div class="wrap wide page">
 
-  <section class="intro" id="about">
-    <img src="assets/hamadullah-bijarani.jpg" width="112" height="112" alt="Hamadullah Bijarani">
-    <div>
-      <h1>Hamadullah Bijarani</h1>
-      <p class="muted">Computer Systems Engineering undergraduate &amp; independent AI researcher<br>
-        <a href="https://www.iba-suk.edu.pk/">Sukkur IBA University</a>, Sindh, Pakistan</p>
-    </div>
-  </section>
-
-  <section aria-label="About">
-    <p>I study how language models can stay capable, efficient, and reliable when data and compute are limited: parameter-efficient adaptation, model compression, and out-of-distribution robustness, approached through real systems constraints.</p>
-    <p>I value reproducible experiments, clear evaluation protocols, and hardware-aware deep learning. Alongside research, I build applied AI systems, from document-grounded retrieval to agentic automation.</p>
+  <aside class="sidebar" id="about">
+    <img src="assets/hamadullah-bijarani.jpg" width="208" height="208" alt="Hamadullah Bijarani">
+    <h1>Hamadullah Bijarani</h1>
+    <p class="role">Computer Systems Engineering undergraduate &amp; independent AI researcher</p>
+    <p class="where"><a href="https://www.iba-suk.edu.pk/">Sukkur IBA University</a>, Sindh, Pakistan</p>
     <div class="links">
       <a href="mailto:hamadullahkhanbijarani@gmail.com">Email</a>
       <a href="https://github.com/hamadbijarani">GitHub</a>
@@ -50,6 +44,25 @@
       <a href="https://www.researchgate.net/profile/Hamadullah-Bijarani">ResearchGate</a>
       <a href="https://orcid.org/0009-0007-9151-6633">ORCID</a>
       <a href="https://huggingface.co/hamadbijarani012">Hugging Face</a>
+    </div>
+  </aside>
+
+<main>
+
+  <section aria-label="About">
+    <p class="lead">Language models that stay capable, efficient, and reliable when data and compute are limited.</p>
+    <p>I study how language models can stay capable, efficient, and reliable when data and compute are limited: parameter-efficient adaptation, model compression, and out-of-distribution robustness, approached through real systems constraints.</p>
+    <p>I value reproducible experiments, clear evaluation protocols, and hardware-aware deep learning. Alongside research, I build applied AI systems, from document-grounded retrieval to agentic automation.</p>
+
+    <div class="quant">
+      <svg id="quant-svg" viewBox="0 0 600 150" role="img" aria-label="A smooth signal and its quantized approximation"></svg>
+      <div class="row">
+        <label for="quant-bits">Precision
+          <input id="quant-bits" type="range" min="1" max="6" step="1" value="3">
+        </label>
+        <output id="quant-out" for="quant-bits">3-bit</output>
+      </div>
+      <p class="cap" id="quant-info">Drag to see what fewer bits do to a signal.</p>
     </div>
   </section>
 
@@ -180,15 +193,15 @@
     <div class="skills">
       <div>
         <h3>Programming</h3>
-        <ul><li>Python (advanced)</li><li>C / C++</li><li>CUDA · SQL · MATLAB</li><li>Bash · LaTeX</li></ul>
+        <ul><li>Python (advanced)</li><li>C / C++</li><li>CUDA</li><li>SQL</li><li>MATLAB</li><li>Bash</li><li>LaTeX</li></ul>
       </div>
       <div>
         <h3>ML &amp; deep learning</h3>
-        <ul><li>PyTorch</li><li>Hugging Face Transformers</li><li>TensorFlow / Keras · scikit-learn</li><li>NumPy · OpenCV</li></ul>
+        <ul><li>PyTorch</li><li>Hugging Face Transformers</li><li>TensorFlow / Keras</li><li>scikit-learn</li><li>NumPy</li><li>OpenCV</li></ul>
       </div>
       <div>
         <h3>NLP &amp; infrastructure</h3>
-        <ul><li>PEFT · LoRA / DoRA</li><li>Distillation · Quantization · RAG</li><li>Docker · FastAPI</li><li>Git · Linux</li></ul>
+        <ul><li>PEFT</li><li>LoRA / DoRA</li><li>Distillation</li><li>Quantization</li><li>RAG</li><li>Docker</li><li>FastAPI</li><li>Git</li><li>Linux</li></ul>
       </div>
     </div>
     <ul class="honors">
@@ -200,8 +213,10 @@
   </section>
 
 </main>
+</div>
 
-<footer class="wrap">Hamadullah Bijarani · Sukkur IBA University · <a href="#top">Back to top</a></footer>
+<footer class="wrap wide">Hamadullah Bijarani · Sukkur IBA University · <a href="#top">Back to top</a></footer>
 
+<script src="script.js"></script>
 </body>
 </html>
