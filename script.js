@@ -1,64 +1,69 @@
-/* Hamadullah Bijarani: portfolio (theme toggle, quantizer hero, nav highlight) */
+/* Hamadullah Bijarani: shared script (theme, copy, sidebar toggle, PEFT explorer). Safe on every page. */
 (function () {
   "use strict";
-  var root = document.documentElement;
+  var $ = function (s) { return document.querySelector(s); };
+  var $$ = function (s) { return Array.prototype.slice.call(document.querySelectorAll(s)); };
 
-  /* theme: system default, button overrides, choice remembered */
-  var btn = document.querySelector("[data-theme-toggle]");
-  function isDark() {
-    var t = root.getAttribute("data-theme");
-    return t ? t === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+  var root = document.documentElement, tb = $("[data-theme-toggle]");
+  function applyTheme(d) {
+    root.classList.toggle("dark", d);
+    if (!tb) return;
+    tb.textContent = d ? "☀" : "☾";
+    tb.setAttribute("aria-label", d ? "Switch to day mode" : "Switch to night mode");
+    tb.title = d ? "Day mode" : "Night mode";
   }
-  function label() { if (btn) btn.textContent = isDark() ? "Light mode" : "Dark mode"; }
-  try { var s = localStorage.getItem("hb-theme"); if (s) root.setAttribute("data-theme", s); } catch (e) {}
-  label();
-  if (btn) btn.addEventListener("click", function () {
-    var next = isDark() ? "light" : "dark";
-    root.setAttribute("data-theme", next);
-    try { localStorage.setItem("hb-theme", next); } catch (e) {}
-    label();
+  var saved = null; try { saved = localStorage.getItem("hb-theme"); } catch (e) {}
+  applyTheme(saved ? saved === "dark" : matchMedia("(prefers-color-scheme: dark)").matches);
+  if (tb) tb.addEventListener("click", function () {
+    var n = !root.classList.contains("dark"); applyTheme(n);
+    try { localStorage.setItem("hb-theme", n ? "dark" : "light"); } catch (e) {}
   });
 
-  /* hero: a smooth signal and its quantized version */
-  var svg = document.getElementById("quant-svg");
-  var range = document.getElementById("quant-bits");
-  if (svg && range) {
-    var W = 600, H = 150, N = 240;
-    var out = document.getElementById("quant-out");
-    var info = document.getElementById("quant-info");
-    var sig = function (t) { return 0.62 * Math.sin(t * 6.2832 * 1.5) + 0.25 * Math.sin(t * 6.2832 * 4.5 + 1); };
-    var y = function (v) { return H / 2 - v * (H / 2 - 10); };
-    var wave = "";
-    for (var i = 0; i <= N; i++) wave += (i ? "L" : "M") + (i / N * W).toFixed(1) + " " + y(sig(i / N)).toFixed(1);
-    function draw() {
-      var bits = Number(range.value), levels = Math.pow(2, bits), step = 2 / (levels - 1);
-      var q = "", err = 0;
-      for (var i = 0; i <= N; i++) {
-        var v = sig(i / N), qv = Math.max(-1, Math.min(1, Math.round(v / step) * step));
-        err += Math.abs(v - qv);
-        q += (i ? "L" : "M") + (i / N * W).toFixed(1) + " " + y(qv).toFixed(1);
-      }
-      svg.innerHTML =
-        '<path d="' + wave + '" fill="none" stroke="var(--wave)" stroke-width="2"/>' +
-        '<path d="' + q + '" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>';
-      out.textContent = bits + "-bit · " + levels + " levels";
-      info.textContent = "Mean error " + (err / (N + 1)).toFixed(3) + ". Model weights shrink to " + Math.round(bits / 16 * 100) + "% of FP16.";
-    }
-    range.addEventListener("input", draw);
-    draw();
+  $$("[data-copy]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var st = b.parentElement.querySelector('[role="status"]');
+      function say(t) { if (st) { st.textContent = t; setTimeout(function () { st.textContent = ""; }, 2500); } }
+      if (navigator.clipboard) navigator.clipboard.writeText(b.getAttribute("data-copy")).then(function () { say("Copied"); }, function () { say("Unable to copy"); });
+      else say("Unable to copy");
+    });
+  });
+
+  var fb = $("[data-follow]");
+  if (fb) fb.addEventListener("click", function () {
+    var o = $("#follow").classList.toggle("open"); fb.setAttribute("aria-expanded", String(o));
+  });
+
+  var links = $$(".masthead nav a[href^='#']");
+  if (links.length && "IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) links.forEach(function (a) { a.classList.toggle("on", a.getAttribute("href") === "#" + e.target.id); }); });
+    }, { rootMargin: "-30% 0px -60% 0px" });
+    $$(".content section[id]").forEach(function (s) { io.observe(s); });
   }
 
-  /* highlight the nav link of the section in view */
-  var links = {};
-  document.querySelectorAll(".site-header nav a[href^='#']").forEach(function (a) { links[a.getAttribute("href").slice(1)] = a; });
-  if ("IntersectionObserver" in window) {
-    var io = new IntersectionObserver(function (es) {
-      es.forEach(function (e) {
-        if (e.isIntersecting) {
-          Object.keys(links).forEach(function (k) { links[k].classList.toggle("on", k === e.target.id); });
-        }
-      });
-    }, { rootMargin: "-30% 0px -60% 0px" });
-    Object.keys(links).forEach(function (k) { var el = document.getElementById(k); if (el) io.observe(el); });
+  /* PEFT explorer (only on peft-explorer.html) */
+  var sel = {}, out = {};
+  $$("[data-peft-select]").forEach(function (s) { sel[s.getAttribute("data-peft-select")] = s; });
+  if (!sel.model) return;
+  $$("[data-peft-out]").forEach(function (o) { out[o.getAttribute("data-peft-out")] = o; });
+  var BB = [{ n: "1.1B", p: 1.1e9, l: 24, h: 2048, f: 5504 }, { n: "3.2B", p: 3.2e9, l: 32, h: 3072, f: 8192 }, { n: "8.0B", p: 8.0e9, l: 32, h: 4096, f: 14336 }, { n: "14.7B", p: 14.7e9, l: 40, h: 5120, f: 13824 }];
+  var RANKS = [4, 8, 16, 32, 64], TARGETS = ["qv", "attention", "linear"], TL = ["Q + V", "All attention", "All linear"];
+  var PREC = ["FP16", "INT8", "INT4"], BYTES = [2, 1, 0.5], GIB = Math.pow(2, 30);
+  function fill(s, a) { a.forEach(function (t, i) { var o = document.createElement("option"); o.value = i; o.textContent = t; s.appendChild(o); }); }
+  fill(sel.model, BB.map(function (b) { return b.n; })); fill(sel.rank, RANKS.map(String)); fill(sel.target, TL); fill(sel.precision, PREC);
+  sel.model.value = 2; sel.rank.value = 2; sel.target.value = 0; sel.precision.value = 0;
+  function fmt(n) { return n >= 1e9 ? (n / 1e9).toFixed(2) + " B" : n >= 1e6 ? (n / 1e6).toFixed(2) + " M" : (n / 1e3).toFixed(1) + " K"; }
+  function recompute() {
+    var m = BB[sel.model.value], r = RANKS[sel.rank.value], t = TARGETS[sel.target.value];
+    var tr = m.l * r * ((t === "qv" ? 4 * m.h : 8 * m.h) + (t === "linear" ? 3 * (m.h + m.f) : 0));
+    var peft = (m.p * BYTES[sel.precision.value] * 1.2 + tr * 16) / GIB + 2, full = m.p * 16 / GIB + 2;
+    out.trainable.textContent = fmt(tr);
+    out.reduction.textContent = ((1 - tr / m.p) * 100).toFixed(2) + " %";
+    out.peftvram.textContent = out.peftvram2.textContent = peft.toFixed(1) + " GiB";
+    out.fullvram.textContent = full.toFixed(1) + " GiB";
+    $("[data-peft-bar]").style.width = Math.max(2, Math.min(100, peft / full * 100)) + "%";
+    $("[data-peft-note]").textContent = peft <= 24 ? "Within a 24 GiB consumer GPU budget" : "Exceeds a 24 GiB consumer GPU budget";
   }
+  Object.keys(sel).forEach(function (k) { sel[k].addEventListener("change", recompute); });
+  recompute();
 })();
