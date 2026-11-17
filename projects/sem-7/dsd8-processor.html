@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DSD-8: an 8-bit processor with a neural-network accelerator (MLP + CNN)</title>
-    <meta name="description" content="Interactive guide to DSD-8, a from-scratch 8-bit processor in Verilog with an int8 neural-network accelerator: 39.7x faster on an Iris MLP, 17.7x faster on a 4-class CNN, 486/486 verified runs (230 MLP + 256 CNN)." />
+    <meta name="description" content="Interactive guide to DSD-8, a from-scratch 8-bit processor in Verilog with an int8 neural-network accelerator: 39.7x faster on an Iris MLP, 20.8x faster on a 4-class handwritten-digit CNN, 486/486 verified runs (230 MLP + 256 CNN)." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -74,6 +74,122 @@ LOOP:   SHR  R1, R1       ; lowest bit -> carry flag
 NEXT:   CMP  R1, R4
         BNE  LOOP         ; until nothing is left
         OUT  0x02, R2     ; LEDs = 6
+        HLT`},{id:"neuron",title:"A real Iris neuron (loop over memory)",plain:"Stores one flower’s 4 inputs plus the bias input 127, and the real trained weights of hidden neuron 2, in data memory. A loop walks two pointers and feeds each pair to the accelerator. Total 5,555 → ÷256 → ReLU = 21 (0x15) on the LEDs.",code:`        LDI  R0, 0xA5
+        OUT  0x5F, R0     ; unlock accelerator
+        LDI  R0, 0x03
+        OUT  0x52, R0     ; clear total + counters
+        LDI  R7, 1        ; constant 1
+; inputs at 0x00-0x04 (last one is the bias input 127)
+        LDI  R1, 0x00
+        LDI  R2, 56
+        ST   [R1], R2
+        ADD  R1, R1, R7
+        LDI  R2, 42
+        ST   [R1], R2
+        ADD  R1, R1, R7
+        LDI  R2, 71
+        ST   [R1], R2
+        ADD  R1, R1, R7
+        LDI  R2, 64
+        ST   [R1], R2
+        ADD  R1, R1, R7
+        LDI  R2, 127
+        ST   [R1], R2
+; weights at 0x10-0x14 (-9, 64, -28, -77, 81)
+        LDI  R1, 0x10
+        LDI  R2, 0xF7     ; -9
+        ST   [R1], R2
+        ADD  R1, R1, R7
+        LDI  R2, 64
+        ST   [R1], R2
+        ADD  R1, R1, R7
+        LDI  R2, 0xE4     ; -28
+        ST   [R1], R2
+        ADD  R1, R1, R7
+        LDI  R2, 0xB3     ; -77
+        ST   [R1], R2
+        ADD  R1, R1, R7
+        LDI  R2, 81
+        ST   [R1], R2
+; the loop: total += input[i] * weight[i]
+        LDI  R1, 0x00     ; input pointer
+        LDI  R2, 0x10     ; weight pointer
+        LDI  R3, 5        ; 5 taps
+        LDI  R6, 0
+LOOP:   LD   R4, [R1]
+        OUT  0x50, R4     ; A = input
+        LD   R5, [R2]
+        OUT  0x51, R5     ; W = weight -> multiply-add
+        ADD  R1, R1, R7
+        ADD  R2, R2, R7
+        SUB  R3, R3, R7
+        CMP  R3, R6
+        BNE  LOOP
+        LDI  R0, 8
+        OUT  0x56, R0     ; shrink: shift right 8 (/256)
+        LDI  R0, 0
+        OUT  0x58, R0     ; table bank 0 = ReLU
+        IN   R4, 0x59     ; ReLU(5555 >> 8) = 21
+        OUT  0x02, R4     ; LEDs = 21 (0x15)
+        HLT`},{id:"lut",title:"Lock gate + activation tables",plain:"First shows the lock: while locked, the status reads 0 and writes are ignored. After the key 0xA5 it reads 1. Then it looks up three tables directly: sigmoid(0) = 128 on the LEDs, tanh(1) = 97 on the 7-segment display, ReLU(−16) = 0.",code:`        IN   R1, 0x5F     ; status while locked = 0
+        LDI  R0, 1
+        OUT  0x58, R0     ; ignored: still locked
+        LDI  R0, 0xA5
+        OUT  0x5F, R0     ; unlock with the key
+        IN   R1, 0x5F     ; status now = 1 (unlocked)
+; sigmoid table (bank 1), input 0
+        LDI  R0, 1
+        OUT  0x58, R0     ; bank 1 = sigmoid
+        LDI  R0, 0
+        OUT  0x5A, R0     ; table index 0
+        IN   R2, 0x5B     ; sigmoid(0) = 128 (0x80)
+; tanh table (bank 3), input 16 means 1.0
+        LDI  R0, 3
+        OUT  0x58, R0     ; bank 3 = tanh
+        LDI  R0, 16
+        OUT  0x5A, R0
+        IN   R3, 0x5B     ; 127 * tanh(1) = 97
+; ReLU table (bank 0), input -16
+        LDI  R0, 0
+        OUT  0x58, R0     ; bank 0 = ReLU
+        LDI  R0, 0xF0     ; -16 as a byte
+        OUT  0x5A, R0
+        IN   R4, 0x5B     ; ReLU(-16) = 0
+        OUT  0x10, R3     ; 7-segment value = 97
+        LDI  R0, 1
+        OUT  0x11, R0     ; 7-segment on
+        OUT  0x02, R2     ; LEDs = 128 (0x80)
+        HLT`},{id:"acc24",title:"Big totals: 24-bit sum and clamping",plain:"Adds 127 × 127 three times (48,387, too big for one byte) and reads the total as three bytes 0x00 BD 03. Shrinking by 256 gives 189, which is clamped to 127. Then A = −128 stays latched while W is sent 4 times, making the total negative: −65 after shrinking, and ReLU turns it into 0. LEDs = 0x7F.",code:`        LDI  R0, 0xA5
+        OUT  0x5F, R0     ; unlock accelerator
+        LDI  R0, 0x03
+        OUT  0x52, R0     ; clear total + counters
+        LDI  R7, 1        ; constant 1
+        LDI  R6, 0        ; constant 0
+        LDI  R1, 127      ; biggest int8 value
+        LDI  R2, 3        ; repeat 3 times
+LOOP:   OUT  0x50, R1     ; A = 127
+        OUT  0x51, R1     ; total += 127 * 127 = 16,129
+        SUB  R2, R2, R7
+        CMP  R2, R6
+        BNE  LOOP
+        IN   R3, 0x55     ; high byte   = 0x00
+        IN   R4, 0x54     ; middle byte = 0xBD
+        IN   R5, 0x53     ; low byte    = 0x03 -> 48,387
+        LDI  R0, 8
+        OUT  0x56, R0     ; shift right 8: 48,387 / 256 = 189
+        IN   R2, 0x57     ; too big for int8 -> clamped to 127
+        LDI  R0, 0x80     ; -128 as a byte
+        OUT  0x50, R0     ; A = -128 (stays latched)
+        OUT  0x51, R1     ; total += -128 * 127
+        OUT  0x51, R1
+        OUT  0x51, R1
+        OUT  0x51, R1     ; total = 48,387 - 65,024 = -16,637
+        IN   R6, 0x57     ; -16,637 >> 8 = -65 (0xBF)
+        LDI  R0, 0
+        OUT  0x58, R0     ; bank 0 = ReLU
+        IN   R5, 0x59     ; ReLU(-65) = 0
+        IN   R1, 0x5D     ; multiplies done = 7
+        OUT  0x02, R2     ; LEDs = 0x7F (the clamped value)
         HLT`}],jn=(o,E=2)=>o.toString(16).toUpperCase().padStart(E,"0");/* ===== DSD-8 visual simulator add-on: diagram + waveform views ===== */
 const dv_hx=(n,w=2)=>((n>>>0)&(w>=8?0xFFFFFFFF:(1<<(w*4))-1)).toString(16).toUpperCase().padStart(w,"0");
 const dv_esc=t=>String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
@@ -503,7 +619,7 @@ function DvFs(){
   const[m,setM]=Bt.useState(0);
   const el=()=>document.getElementById("try");
   const fit=()=>{
-    const t=el(),c=t&&t.firstElementChild;if(!c||!t.classList.contains("dsv-fs"))return;
+    const t=el(),c=t&&t.firstElementChild;if(c)c.removeAttribute("style");return;
     c.style.transform="none";c.style.position="absolute";c.style.transformOrigin="0 0";
     const vw=window.innerWidth,vh=window.innerHeight;let best=null;
     [1100,1250,1440,1650,1900,2200].forEach(W=>{c.style.width=W+"px";const H=c.offsetHeight,k=Math.min(vw/W,vh/H,1.4)*0.985;if(!best||k>best.k)best={W,H,k}});
@@ -512,22 +628,22 @@ function DvFs(){
   };
   const leave=()=>{const t=el();if(!t)return;t.classList.remove("dsv-fs");const c=t.firstElementChild;if(c)c.removeAttribute("style");document.body.style.overflow="";setM(0)};
   Bt.useEffect(()=>{
-    const fc=()=>{const t=el();if(!document.fullscreenElement&&t&&t.classList.contains("dsv-fs")&&t.dataset.native==="1"){t.dataset.native="";leave()}else setTimeout(fit,60)};
+    const fc=()=>{const t=el();if(!(document.fullscreenElement||document.webkitFullscreenElement)&&t&&t.classList.contains("dsv-fs")&&t.dataset.native==="1"){t.dataset.native="";leave()}else setTimeout(fit,60)};
     const kd=e=>{const t=el();if(e.key==="Escape"&&t&&t.classList.contains("dsv-fs")&&t.dataset.native!=="1")leave()};
     const rs=()=>fit();
-    document.addEventListener("fullscreenchange",fc);document.addEventListener("keydown",kd);window.addEventListener("resize",rs);
+    document.addEventListener("fullscreenchange",fc);document.addEventListener("webkitfullscreenchange",fc);document.addEventListener("keydown",kd);window.addEventListener("resize",rs);
     let ro=null;const t=el();if(t&&t.firstElementChild&&window.ResizeObserver){ro=new ResizeObserver(()=>{if(t.classList.contains("dsv-fs"))fit()});ro.observe(t.firstElementChild)}
     return()=>{document.removeEventListener("fullscreenchange",fc);document.removeEventListener("keydown",kd);window.removeEventListener("resize",rs);ro&&ro.disconnect()}
   },[]);
   const toggle=()=>{
     const t=el();if(!t)return;
-    if(t.classList.contains("dsv-fs")){if(document.fullscreenElement&&document.exitFullscreen)document.exitFullscreen();t.dataset.native="";leave();return}
+    if(t.classList.contains("dsv-fs")){if(document.fullscreenElement&&document.exitFullscreen)document.exitFullscreen();else if(document.webkitFullscreenElement&&document.webkitExitFullscreen)document.webkitExitFullscreen();t.dataset.native="";leave();return}
     t.classList.add("dsv-fs");document.body.style.overflow="hidden";setM(1);
     const go=()=>{setTimeout(fit,30);setTimeout(fit,250)};
-    if(t.requestFullscreen){t.requestFullscreen().then(()=>{t.dataset.native="1";go()}).catch(go)}else go();
+    {const rq=t.requestFullscreen||t.webkitRequestFullscreen;if(rq){try{const pr=rq.call(t);if(pr&&pr.then)pr.then(()=>{t.dataset.native="1";go()}).catch(()=>{xa_fsNote();go()});else{t.dataset.native="1";go()}}catch(e){xa_fsNote();go()}}else{xa_fsNote();go()}}
     go()
   };
-  return s.jsx("div",{className:"dsv-fsbar",children:s.jsx("button",{className:"btn",onClick:toggle,title:"Show the simulator full screen, scaled to fit",children:m?"⤡ Exit full screen":"⤢ Full screen"})})
+  return s.jsxs("div",{className:"dsv-fsbar",children:[s.jsx(XZoom,{}),s.jsx("button",{className:"btn",onClick:toggle,title:"Show the simulator on the whole screen",children:m?"⤡ Exit full screen":"⤢ Full screen"})]})
 }
 
 /* ===== CNN extension content (from the updated report, section 14A) ===== */
@@ -670,7 +786,7 @@ function CnnDemo(){
     dh("div",{className:"cn-foot"},
       dh("div",null,dh("b",null,ex.toLocaleString())," multiplies run · ",dh("b",null,sk.toLocaleString())," skipped (",dh("b",null,Math.round(100*sk/tot)+"%"),") of ",tot.toLocaleString()," taps for this picture"),
       dh("div",{className:"text-slate-400"},"conv "+(R.ex1+R.sk1).toLocaleString()+" taps + fully connected "+(R.ex2+R.sk2)+" taps")),
-    dh("p",{className:"mt-2 text-xs leading-relaxed text-slate-500"},"Same arithmetic as the real program: int8 taps, zero-skip, >> shift, saturate to int8, ReLU from LUT bank 0, offset-binary scores from LUT bank 2, argmax with lowest class winning ties, class on the LEDs. The weights here are hand-designed line detectors and a +3 / −1 classifier so the output is easy to read; the trained weights live in ",s.jsx(Ht,{children:"cnn/data/weights_q.json"}),". Measured on the real model (mean of 64 images): software convolution 1,018,701 cycles vs. accelerator 57,658.")
+    dh("p",{className:"mt-2 text-xs leading-relaxed text-slate-500"},"Same arithmetic as the real program: int8 taps, zero-skip, >> shift, saturate to int8, ReLU from LUT bank 0, offset-binary scores from LUT bank 2, argmax with lowest class winning ties, class on the LEDs. The weights here are hand-designed line detectors and a +3 / −1 classifier so the output is easy to read; the trained weights live in ",s.jsx(Ht,{children:"cnn/data/weights_q.json"}),". Measured on the real model (mean of 64 images): software convolution 1,202,307 cycles (b0) vs. accelerator 57,731 (a2), 20.8× faster.")
   )
 }
 function CnnBody(){
@@ -696,7 +812,7 @@ function CnnBody(){
         dh("div",{className:"label"},"Four program variants, 64 images each"),
         s.jsx("div",{className:"mt-3 overflow-x-auto",children:s.jsx(_n,{head:["Variant","Convolution","ReLU","Program size"],rows:[["b0","software, repeated addition","software","388 / 512"],["b1","software, shift-and-add","software","510 / 512"],["a0","accelerator MAC pipeline","software","239 / 512"],["a2","accelerator MAC pipeline","LUT bank 0","233 / 512"]]})}),
         dh("p",{className:"mt-3 text-sm leading-relaxed text-slate-600"},"The fully connected layer is always software, with logits through LUT bank 2. An unrolled ",s.jsx(Ht,{children:"a4"})," like the Iris one was tried and dropped: the conv loop is limited by pointer arithmetic and bus handshakes, so unrolling cannot pay for its program space."),
-        dh("p",{className:"mt-2 text-xs leading-relaxed text-slate-500"},"Accuracy on the CNN’s own 64 test images: float 0.891 (57/64), int8 0.922 (59/64). Up to 5 images are classified differently from their label; that is the quantized model’s error. What verification checks is that hardware, golden simulator and ",s.jsx(Ht,{children:"cnn_ref.py"})," all agree byte for byte.")
+        dh("p",{className:"mt-2 text-xs leading-relaxed text-slate-500"},"Accuracy on the CNN’s 64 test images (MNIST handwritten digits 0–3, shrunk to 8×8): float 0.969 (62/64), int8 0.969 (62/64). The 2 images that differ from their label are the model’s error, not a verification failure. What verification checks is that hardware, golden simulator and ",s.jsx(Ht,{children:"cnn_ref.py"})," all agree byte for byte.")
       )
     )
   )
@@ -705,11 +821,11 @@ function CnnBody(){
 /* speed chart with a workload switch (Iris MLP / CNN) */
 const cn_W={
   mlp:{max:45e3,lo:2.5,hi:Math.log10(45e3),rows:null,rng:"23 flowers"},
-  cnn:{max:1.1e6,lo:4,hi:Math.log10(1.1e6),rng:"64 images",rows:[
-    {id:"b0",name:"Software, repeated addition",plain:"No helper chip. Every convolution tap is a multiply done by repeated adding.",cycles:1018701,range:"994,077–1,072,205",ins:"279,919",hw:false},
-    {id:"b1",name:"Software, shift-and-add",plain:"No helper chip. Fewer loop trips per multiply, but more instructions per trip.",cycles:801609,range:"797,999–807,173",ins:"211,687",hw:false},
-    {id:"a0",name:"Accelerator conv, software ReLU",plain:"The chip does the multiply-accumulate; software still applies ReLU.",cycles:59483,range:"59,437–59,521",ins:"14,207",hw:true},
-    {id:"a2",name:"Accelerator conv + hardware ReLU",plain:"The chip multiplies and applies ReLU from LUT bank 0.",cycles:57658,range:"57,617–57,685",ins:"13,678",hw:true}]}
+  cnn:{max:1.3e6,lo:4,hi:Math.log10(1.3e6),rng:"64 images",rows:[
+    {id:"b0",name:"Software, repeated addition",plain:"No helper chip. Every convolution tap is a multiply done by repeated adding.",cycles:1202307,range:"1,157,739–1,269,487",ins:"332,617",hw:false},
+    {id:"b1",name:"Software, shift-and-add",plain:"No helper chip. Fewer loop trips per multiply, but more instructions per trip.",cycles:790545,range:"783,847–798,293",ins:"208,913",hw:false},
+    {id:"a0",name:"Accelerator conv, software ReLU",plain:"The chip does the multiply-accumulate; software still applies ReLU.",cycles:59387,range:"59,321–59,429",ins:"14,182",hw:true},
+    {id:"a2",name:"Accelerator conv + hardware ReLU",plain:"The chip multiplies and applies ReLU from LUT bank 0.",cycles:57731,range:"57,697–57,765",ins:"13,696",hw:true}]}
 };
 function Kh2(){
   const[wl,setWl]=Bt.useState("mlp"),[lg,setLg]=Bt.useState(false),[b,setB]=Bt.useState("b0");
@@ -735,15 +851,576 @@ function Kh2(){
       dh("div",{className:"mt-0.5 text-xs text-slate-500"},c.plain," ",dh("span",{className:"text-slate-400"},"(range over "+W.rng+": "+c.range+(c.ins?"; about "+c.ins+" instructions retired":"")+")"))
     ))}),
     wl==="cnn"&&dh("div",{className:"cn-note"},
-      dh("strong",null,"Why 17.7× here and 39.7× on Iris? "),
-      "The accelerator retires about 20× fewer instructions than repeated-addition software, but the convolution loop also spends time on pointer arithmetic and bus handshakes that the MAC pipeline does not remove. Results are identical for NN_POSTED = 0 and 1."
+      dh("strong",null,"Why 20.8× here and 39.7× on Iris? "),
+      "The accelerator retires about 24× fewer instructions than repeated-addition software (13,696 vs 332,617), but the convolution loop also spends time on pointer arithmetic and bus handshakes that the MAC pipeline does not remove. Results are identical for NN_POSTED = 0 and 1."
     )
   )
 }
 
-function Gh(){const[o,E]=Bt.useState(zn[0].id),[b,f]=Bt.useState(zn[0].code),[x,D]=Bt.useState(()=>As()),[C,X]=Bt.useState(!1),[dv_V,dv_setV]=Bt.useState("current"),[dv_st,dv_setSt]=Bt.useState(0),S=Bt.useMemo(()=>Hh(b),[b]),y=zn.find(B=>B.id===o)||{plain:"Custom program: your own code. Edit it freely, then Step, Play or Run to end."},H=()=>{X(!1),D(As()),dv_setSt(0)},_=B=>{const M=zn.find(w=>w.id===B);E(B),f(M.code),H()},O=()=>{S.ok&&(D(B=>B.halted?B:dv_step(B,S.program)),dv_setSt(0))},Y=()=>{if(!S.ok)return;X(!1);let B=x.halted?As():x;for(let M=0;M<3e3&&!B.halted;M++)B=dv_step(B,S.program);D(B),dv_setSt(0)};Bt.useEffect(()=>{if(!C)return;if(x.halted)return X(!1);const B=setInterval(dv_V==="diagram"?dv_cyc:O,dv_V==="diagram"?650:160);return()=>clearInterval(B)});const dv_plan=dv_mkplan(x,S),dv_cyc=()=>{S.ok&&!x.halted&&(dv_st<dv_plan.path.length-1?dv_setSt(dv_st+1):O())},U=x.trace[x.trace.length-1],K=x.trace.slice(-6).reverse(),I=Id(x.nn.acc,x.nn.shift,x.nn.lutSel);return s.jsxs("div",{children:[dv_tabs(dv_V,dv_setV),s.jsxs("div",{className:dv_V==="current"?"grid gap-5 lg:grid-cols-5":"dsv-split",children:[s.jsxs("div",{className:dv_V==="current"?"lg:col-span-3":"dsv-l",children:[s.jsx("div",{className:"mb-3 flex flex-wrap gap-2",children:[zn.map(B=>s.jsx("button",{onClick:()=>_(B.id),className:`chip ${o===B.id?"chip-on":""}`,children:B.title},B.id)),s.jsx("button",{onClick:()=>E("custom"),className:`chip ${o==="custom"?"chip-on":""}`,children:"Custom program"},"custom")]}),s.jsx("p",{className:"mb-3 text-sm text-slate-600",children:y.plain}),s.jsx("div",{className:"overflow-hidden rounded-xl border border-slate-200 bg-slate-950",children:s.jsxs("div",{className:"flex",children:[s.jsx("div",{className:"select-none py-3 pl-3 pr-2 text-right font-mono text-[12px] leading-5 text-slate-600",children:b.split(`
+function Gh(){const[o,E]=Bt.useState(zn[0].id),[b,f]=Bt.useState(zn[0].code),[x,D]=Bt.useState(()=>As()),[C,X]=Bt.useState(!1),[dv_V,dv_setV]=Bt.useState("current"),[dv_st,dv_setSt]=Bt.useState(0),S=Bt.useMemo(()=>Hh(b),[b]),y=zn.find(B=>B.id===o)||{plain:"Custom program: your own code. Edit it freely, then Step, Play or Run to end."},H=()=>{X(!1),D(As()),dv_setSt(0)},_=B=>{const M=zn.find(w=>w.id===B);E(B),f(M.code),H()},O=()=>{S.ok&&(D(B=>B.halted?B:dv_step(B,S.program)),dv_setSt(0))},Y=()=>{if(!S.ok)return;X(!1);let B=x.halted?As():x;for(let M=0;M<3e3&&!B.halted;M++)B=dv_step(B,S.program);D(B),dv_setSt(0)};Bt.useEffect(()=>{if(!C)return;if(x.halted)return X(!1);const B=setInterval(dv_V==="diagram"?dv_cyc:O,dv_V==="diagram"?650:160);return()=>clearInterval(B)});const dv_plan=dv_mkplan(x,S),dv_cyc=()=>{S.ok&&!x.halted&&(dv_st<dv_plan.path.length-1?dv_setSt(dv_st+1):O())},U=x.trace[x.trace.length-1],K=x.trace.slice(-6).reverse(),I=Id(x.nn.acc,x.nn.shift,x.nn.lutSel);return s.jsxs("div",{children:[dv_tabs(dv_V,dv_setV),s.jsxs("div",{className:dv_V==="current"?"grid gap-5 lg:grid-cols-5":"dsv-split",children:[s.jsxs("div",{className:dv_V==="current"?"lg:col-span-3":"dsv-l",children:[s.jsx("div",{className:"mb-3 flex flex-wrap gap-2",children:[zn.map(B=>s.jsx("button",{onClick:()=>_(B.id),className:`chip ${o===B.id?"chip-on":""}`,children:B.title},B.id)),s.jsx("button",{onClick:()=>E("custom"),className:`chip ${o==="custom"?"chip-on":""}`,children:"Custom program"},"custom")]}),s.jsx("p",{className:"mb-3 text-sm text-slate-600",children:y.plain}),s.jsx("div",{className:"xa-ed overflow-hidden rounded-xl border border-slate-200 bg-slate-950",children:s.jsxs("div",{className:"flex",children:[s.jsx("div",{className:"select-none py-3 pl-3 pr-2 text-right font-mono text-[12px] leading-5 text-slate-600",children:b.split(`
 `).map((B,M)=>s.jsx("div",{children:M+1},M))}),s.jsx("textarea",{value:b,onChange:B=>{f(B.target.value),E("custom"),H()},spellCheck:!1,rows:Math.max(12,b.split(`
-`).length),className:"w-full resize-none bg-transparent py-3 pr-3 font-mono text-[12px] leading-5 text-emerald-200 outline-none","aria-label":"Assembly source"})]})}),!S.ok&&s.jsx("p",{className:"mt-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700",children:S.errors[0]}),s.jsxs("div",{className:"mt-3 flex flex-wrap items-center gap-2",children:[s.jsx("button",{className:"btn btn-dark",onClick:O,disabled:!S.ok||x.halted,children:"Step"}),s.jsx("button",{className:"btn",onClick:()=>X(B=>!B),disabled:!S.ok||x.halted,children:C?"Pause":"Play"}),s.jsx("button",{className:"btn",onClick:Y,disabled:!S.ok,children:"Run to end"}),s.jsx("button",{className:"btn",onClick:()=>H(),children:"Reset"}),s.jsxs("span",{className:"ml-auto text-xs text-slate-500",children:[S.ok?`${S.programLength} instructions`:"fix the error to run"," · you can edit the code"]})]})]}),dv_V==="current"?s.jsxs("div",{className:"space-y-4 lg:col-span-2",children:[s.jsxs("div",{className:"card",children:[s.jsx("div",{className:"label",children:"Now running"}),s.jsx("div",{className:"mt-1 font-mono text-sm text-slate-900",children:U?U.disasm:"press Step to begin"}),s.jsxs("div",{className:"mt-1 text-xs text-slate-500",children:[U&&U.rfWe?`R${U.rdAddr} ← 0x${jn(U.rfData)}`:"",U&&U.memWe?`memory[0x${jn(U.memAddr)}] ← 0x${jn(U.memData)}`:"",x.halted?" · stopped (HLT)":""]}),s.jsxs("div",{className:"mt-3 flex items-center gap-3",children:[s.jsx("div",{className:"label",children:"LEDs"}),s.jsx("div",{className:"flex gap-1.5",children:[7,6,5,4,3,2,1,0].map(B=>s.jsx("span",{className:`h-3.5 w-3.5 rounded-full ${x.leds>>B&1?"bg-amber-400 shadow-[0_0_8px_2px_rgba(251,191,36,.6)]":"bg-slate-200"}`},B))}),s.jsxs("div",{className:"font-mono text-sm",children:["0x",jn(x.leds)," = ",x.leds]})]})]}),s.jsxs("div",{className:"card",children:[s.jsx("div",{className:"label",children:"Registers (8 × 8-bit)"}),s.jsx("div",{className:"mt-2 grid grid-cols-4 gap-2",children:Array.from(x.regs).map((B,M)=>s.jsxs("div",{className:`rounded-lg border px-2 py-1.5 text-center ${U&&U.rfWe&&U.rdAddr===M?"border-indigo-400 bg-indigo-50":"border-slate-200"}`,children:[s.jsxs("div",{className:"text-[10px] text-slate-500",children:["R",M]}),s.jsx("div",{className:"font-mono text-sm",children:jn(B)}),s.jsx("div",{className:"font-mono text-[10px] text-slate-400",children:B})]},M))}),s.jsxs("div",{className:"mt-3 flex flex-wrap gap-2 text-xs",children:[["Z","N","C","V"].map(B=>s.jsxs("span",{className:`rounded-md px-2 py-0.5 font-mono ${x.flags[B]?"bg-indigo-600 text-white":"bg-slate-100 text-slate-500"}`,children:[B,"=",x.flags[B]]},B)),s.jsxs("span",{className:"ml-auto text-slate-500",children:["PC ",x.pc," · ",x.retiredCount," done · ",x.cycleCount," cycles"]})]})]}),s.jsxs("div",{className:"card",children:[s.jsxs("div",{className:"flex items-center justify-between",children:[s.jsx("div",{className:"label",children:"Accelerator"}),s.jsx("span",{className:`rounded-full px-2 py-0.5 text-[11px] font-medium ${x.nn.unlocked?"bg-emerald-100 text-emerald-800":"bg-slate-100 text-slate-500"}`,children:x.nn.unlocked?"unlocked":"locked"})]}),s.jsx("div",{className:"mt-2 grid grid-cols-4 gap-2 text-center",children:[["sum",x.nn.acc],["multiplies",x.nn.macCnt],["skipped",x.nn.skipCnt],["activated",I]].map(([B,M])=>s.jsxs("div",{className:"rounded-lg border border-slate-200 py-1.5",children:[s.jsx("div",{className:"text-[10px] text-slate-500",children:B}),s.jsx("div",{className:"font-mono text-sm",children:M})]},B))})]}),K.length>1&&s.jsxs("div",{className:"card",children:[s.jsx("div",{className:"label",children:"Recent steps"}),s.jsx("ul",{className:"mt-1 space-y-0.5 font-mono text-[11px] text-slate-600",children:K.map(B=>s.jsxs("li",{children:[String(B.seq).padStart(3,"0")," · pc ",B.pc," · ",B.disasm]},B.seq))})]})]}):dv_right({x,S,plan:dv_plan,st:dv_st,setSt:dv_setSt,cyc:dv_cyc,step:O,V:dv_V})]})]})}const Zl=({id:o,tone:E="white",kicker:b,title:f,lead:x,children:D})=>s.jsx("section",{id:o,className:`scroll-mt-14 py-16 ${E==="soft"?"bg-slate-50":"bg-white"}`,children:s.jsxs("div",{className:"mx-auto max-w-6xl px-5",children:[s.jsxs("div",{className:"mb-8 max-w-3xl",children:[s.jsx("div",{className:"text-xs font-semibold uppercase tracking-widest text-indigo-600",children:b}),s.jsx("h2",{className:"mt-1 text-3xl font-bold tracking-tight text-slate-900",children:f}),x&&s.jsx("p",{className:"mt-3 text-lg leading-relaxed text-slate-600",children:x})]}),D]})}),Ht=({children:o})=>s.jsx("code",{className:"rounded bg-slate-100 px-1 py-0.5 font-mono text-[0.85em] text-slate-800",children:o}),Vl=({title:o,children:E})=>s.jsxs("details",{className:"group rounded-xl border border-slate-200 bg-white",children:[s.jsxs("summary",{className:"flex cursor-pointer list-none items-center justify-between px-4 py-3 font-medium text-slate-900",children:[o,s.jsx("span",{className:"text-slate-400 transition group-open:rotate-180",children:"⌄"})]}),s.jsx("div",{className:"overflow-x-auto border-t border-slate-100 px-4 py-4 text-sm leading-relaxed text-slate-600",children:E})]}),_n=({head:o,rows:E})=>s.jsxs("table",{className:"w-full min-w-[480px] text-left text-sm",children:[s.jsx("thead",{children:s.jsx("tr",{className:"border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500",children:o.map(b=>s.jsx("th",{className:"py-1.5 pr-4 font-semibold",children:b},b))})}),s.jsx("tbody",{children:E.map((b,f)=>s.jsx("tr",{className:"border-b border-slate-100 align-top last:border-0",children:b.map((x,D)=>s.jsx("td",{className:`py-1.5 pr-4 ${D===0?"font-mono text-[13px] text-slate-900":""}`,children:x},D))},f))})]}),On={pc:{name:"Program counter",plain:"A bookmark holding the address of the next instruction.",tech:"9-bit register (0x000–0x1FF). A taken branch loads a new address instead of adding 1.",file:"prog_counter.v"},imem:{name:"Program memory",plain:"Where the program is stored: 512 instructions of 16 bits each.",tech:"512 × 16-bit memory, read-only to software (Harvard design), filled with $readmemh or the +IMEM plusarg.",file:"instr_memory.v"},dec:{name:"Decoder",plain:"Splits the 16-bit instruction into “what to do” and “with what”.",tech:"Pure wiring, no state: opcode [15:12], rd, rs1, rs2, imm8, addr9, cond, port.",file:"instr_decoder.v"},ctl:{name:"Control unit",plain:"The conductor. Walks each instruction through its stages and says when it is finished.",tech:"6-state FSM (FETCH, DECODE, EXECUTE, MEM_IO, WRITEBACK, HALTED_S). Emits exactly one “retire” per instruction. Waits in MEM_IO until io_ready.",file:"control_unit.v"},regs:{name:"Registers R0–R7",plain:"Eight tiny scratch pads, each holding one byte (0–255).",tech:"8 × 8-bit, two asynchronous read ports, one synchronous write port. No register is hard-wired to zero.",file:"register_file.v"},alu:{name:"ALU (calculator)",plain:"Adds, subtracts, compares, combines bits and shifts bytes.",tech:"8-bit: ADD SUB AND OR XOR SHL SHR CMP. Subtract carry means “no borrow”, so C=1 ⇒ a ≥ b (unsigned).",file:"alu.v"},flags:{name:"Flags",plain:"Four yes/no notes about the last result: zero? negative? carry? overflow?",tech:"Registered Z, N, C, V (always in that order). Branch instructions test them.",file:"flags_reg.v"},dmem:{name:"Data memory",plain:"256 bytes of storage for numbers. You point at a spot using a register.",tech:"256 × 8-bit, combinational read, synchronous write. Only register-indirect [Rp] addressing.",file:"data_memory.v"},bus:{name:"I/O bus",plain:"The doorway to the outside world: switches, LEDs, timers and the accelerator.",tech:"Request/ready handshake: a write only takes effect when request AND ready are both high. 0x00–0x1F local, 0x20+ external, 0x50–0x5F accelerator.",file:"io_bus.v"},nn:{name:"Accelerator front desk",plain:"Locked after reset. Writing the key 0xA5 opens it. Counts multiplies done and skipped.",tech:"Decodes ports 0x50–0x5F, lock gate, ready policy, zero-skip, saturating 8-bit counters.",file:"nn_accel.v"},mac:{name:"Multiplier pipeline",plain:"Multiplies two signed bytes and adds the product to a running total, in three overlapping stages.",tech:"signed 8×8 → 16-bit product → wrapping signed 24-bit accumulator; busy = v1|v2|v3.",file:"nn_mac_pipe.v"},act:{name:"Rescale & clamp",plain:"Shrinks the big running total back into one byte so it can feed the next layer.",tech:"sat8(acc >>> shift), shift 0–15, readable at NN_QOUT (0x57).",file:"nn_act.v"},lut:{name:"Activation tables",plain:"A look-up table that applies the network’s “curve” (ReLU, sigmoid, tanh) instantly.",tech:"4 banks × 256 bytes: ReLU, sigmoid, offset-binary, tanh. Generated by nn/gen_lut.py, never hand-edited.",file:"nn_lut_rom.v"}},Kd=[{n:"Fetch",d:"grab the next instruction"},{n:"Decode",d:"work out what it means"},{n:"Execute",d:"calculate or decide"},{n:"Memory / I-O",d:"talk to memory or a device"},{n:"Write back",d:"store the answer"},{n:"Halted",d:"stay stopped"}],Xh=["FETCH","DECODE","EXECUTE","MEM_IO","WRITEBACK","HALTED_S"],Nl={stage:0,plain:"The program counter points at the next instruction; program memory hands it over, and the counter moves on by one.",tech:"pc_en=1, ir_we=1 — IR and IR_PC latched, PC+1",on:["pc","imem","ctl"]},Jd=[{label:"Add two numbers",code:"ADD R3, R3, R1",cycles:"4 cycles",steps:[Nl,{stage:1,plain:"The decoder finds the opcode (ADD) and which registers to use.",tech:"rs1_addr, rs2_addr extracted",on:["dec","regs","ctl"]},{stage:2,plain:"The two register values go to the ALU, which adds them. The flags record whether the result was zero, negative, or carried.",tech:"alu_op=ADD, flags_we=1",on:["regs","alu","flags","ctl"]},{stage:4,plain:"The sum is written back into R3. The instruction is now finished.",tech:"wb_sel=2'b00, rf_we=1, retire=1",on:["alu","regs","ctl"]}]},{label:"Put a number in a register",code:"LDI R0, 0xA5",cycles:"4 cycles",steps:[Nl,{stage:1,plain:"The number to load (0xA5) is part of the instruction itself, so the decoder just pulls it out.",tech:"imm8[7:0] extracted",on:["dec","ctl"]},{stage:2,plain:"Nothing to calculate. Flags stay as they were.",tech:"flags_we=0",on:["dec","ctl"]},{stage:4,plain:"The number is copied into R0.",tech:"wb_sel=2'b10, rf_we=1, retire=1",on:["dec","regs","ctl"]}]},{label:"Read from memory",code:"LD R3, [R1]",cycles:"5 cycles",steps:[Nl,{stage:1,plain:"R1 holds the memory address we want, so the decoder picks out R1.",tech:"rs1_addr = pointer Rp",on:["dec","regs","ctl"]},{stage:2,plain:"The address in R1 is sent to data memory.",tech:"dmem_addr ← R[rs1]",on:["regs","ctl"]},{stage:3,plain:"Data memory returns the byte stored at that address.",tech:"mem_we=0, dmem_rdata valid",on:["dmem","ctl"]},{stage:4,plain:"The byte is written into R3.",tech:"wb_sel=2'b01, rf_we=1, retire=1",on:["dmem","regs","ctl"]}]},{label:"Write to memory",code:"ST [R1], R2",cycles:"4 cycles",steps:[Nl,{stage:1,plain:"The decoder finds the address register (R1) and the data register (R2).",tech:"rs1_addr (Rp), rd_addr carries the data register",on:["dec","regs","ctl"]},{stage:2,plain:"Both register values are read out and made ready.",tech:"addr ← R[rs1], wdata ← R[rd]",on:["regs","ctl"]},{stage:3,plain:"Data memory stores the byte. No register changes, so the instruction finishes here.",tech:"mem_we=1, retire=1",on:["dmem","ctl"]}]},{label:"Compare and branch",code:"BEQ DONE",cycles:"3 cycles",steps:[Nl,{stage:1,plain:"The decoder reads the condition (“equal?”) and the target address.",tech:"cond[2:0], addr9[8:0]",on:["dec","flags","ctl"]},{stage:2,plain:"If the zero flag is set, the program counter jumps to the target; otherwise it carries on.",tech:"pc_load = cond_met, retire=1 (targets are absolute 9-bit addresses)",on:["flags","pc","ctl"]}]},{label:"Send a value to the accelerator",code:"OUT 0x51, R2",cycles:"4 cycles + waiting",steps:[Nl,{stage:1,plain:"The decoder sees an I/O write to port 0x51 with R2 as the source.",tech:"port=0x51, io_dir=OUT",on:["dec","regs","ctl"]},{stage:2,plain:"The value in R2 is placed on the bus.",tech:"io_wdata ← R[rd]",on:["regs","ctl"]},{stage:3,plain:"The bus delivers it to the accelerator, which multiplies it with the number stored earlier and adds to its running total. The CPU waits until the chip says “ready”.",tech:"io_wr=1, wait io_ready, mac_start=1, retire=1",on:["bus","nn","mac","ctl"]}]},{label:"Read from the accelerator",code:"IN R4, 0x59",cycles:"5 cycles + waiting",steps:[Nl,{stage:1,plain:"The decoder sees an I/O read from port 0x59 (the activated result).",tech:"port=0x59, io_dir=IN",on:["dec","ctl"]},{stage:2,plain:"The CPU prepares the read request.",tech:"prepare io_rd",on:["ctl"]},{stage:3,plain:"The accelerator rescales its total to one byte and looks it up in the activation table. If the multiplier is still busy, the CPU waits.",tech:"io_rd=1, stall while nn_busy, latch io_rdata",on:["bus","nn","act","lut","ctl"]},{stage:4,plain:"The result is written into R4.",tech:"wb_sel=2'b11, rf_we=1, retire=1",on:["regs","ctl"]}]},{label:"Stop",code:"HLT",cycles:"2 cycles, then stays stopped",steps:[Nl,{stage:1,plain:"The instruction is recognised and counted as finished right away.",tech:"retire=1, next_state=HALTED_S",on:["dec","ctl"]},{stage:5,plain:"The processor stays stopped until reset.",tech:"halted=1 (sticky)",on:["ctl"]}]}];function Qh(){const[o,E]=Bt.useState(5),[b,f]=Bt.useState(3),[x,D]=Bt.useState("nn"),[C,X]=Bt.useState(!1),S=Jd[o],y=S.steps[Math.min(b,S.steps.length-1)];Bt.useEffect(()=>{if(!C)return;const O=setInterval(()=>f(Y=>(Y+1)%S.steps.length),1700);return()=>clearInterval(O)},[C,S]);const H=({id:O,className:Y=""})=>{const U=y.on.includes(O);return s.jsx("button",{onClick:()=>D(O),"aria-pressed":x===O,className:`rounded-lg border px-3 py-2 text-left transition ${Y} ${U?"border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200":"border-slate-200 bg-white hover:border-slate-300"} ${x===O?"outline outline-2 outline-offset-2 outline-slate-900":""}`,children:s.jsxs("div",{className:"flex items-center justify-between gap-2 text-sm font-semibold text-slate-900",children:[On[O].name,U&&s.jsx("span",{className:"h-2 w-2 animate-pulse rounded-full bg-indigo-600"})]})})},_=({title:O,sub:Y,tint:U,children:K})=>s.jsxs("div",{className:`rounded-2xl border p-4 ${U}`,children:[s.jsx("div",{className:"text-xs font-bold uppercase tracking-wide text-slate-700",children:O}),s.jsx("div",{className:"mb-3 text-xs text-slate-500",children:Y}),s.jsx("div",{className:"grid gap-2",children:K})]});return s.jsxs("div",{className:"rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6",children:[s.jsxs("div",{className:"flex flex-wrap items-end gap-3",children:[s.jsxs("label",{className:"text-sm font-medium text-slate-700",children:["Pick an instruction",s.jsx("select",{value:o,onChange:O=>{E(Number(O.target.value)),f(0)},className:"mt-1 block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm",children:Jd.map((O,Y)=>s.jsxs("option",{value:Y,children:[O.label," — ",O.code]},O.code))})]}),s.jsxs("button",{className:"btn btn-dark",onClick:()=>{X(!1),f(O=>(O+1)%S.steps.length)},children:["Next step (",Math.min(b,S.steps.length-1)+1,"/",S.steps.length,")"]}),s.jsx("button",{className:"btn",onClick:()=>X(O=>!O),children:C?"Pause":"Auto-play"}),s.jsxs("span",{className:"ml-auto text-sm text-slate-500",children:[s.jsx(Ht,{children:S.code})," · ",S.cycles]})]}),s.jsx("ol",{className:"mt-5 flex flex-wrap gap-1.5",children:Kd.map((O,Y)=>{const U=S.steps.findIndex(B=>B.stage===Y),K=U>=0,I=y.stage===Y;return s.jsx("li",{children:s.jsxs("button",{disabled:!K,onClick:()=>{X(!1),f(U)},title:O.d,className:`rounded-full px-3 py-1 text-xs font-medium ${I?"bg-indigo-600 text-white":K?"border border-slate-300 bg-white text-slate-700 hover:border-indigo-400":"bg-slate-100 text-slate-400"}`,children:[Y+1,". ",O.n]})},O.n)})}),s.jsxs("div",{className:"mt-3 rounded-xl bg-slate-900 p-4 text-slate-100",children:[s.jsxs("div",{className:"text-sm leading-relaxed",children:[s.jsxs("strong",{className:"text-white",children:[Kd[y.stage].n,":"]})," ",y.plain]}),s.jsxs("div",{className:"mt-2 font-mono text-[11px] text-emerald-300",children:[Xh[y.stage]," · ",y.tech]})]}),s.jsxs("div",{className:"mt-5 grid gap-4 lg:grid-cols-12",children:[s.jsxs("div",{className:"grid gap-4 lg:col-span-8 lg:grid-cols-2",children:[s.jsxs(_,{title:"1 · Find & understand",sub:"Which instruction is next, and what does it say?",tint:"border-sky-200 bg-sky-50/50",children:[s.jsx(H,{id:"pc"}),s.jsx(H,{id:"imem"}),s.jsx(H,{id:"dec"})]}),s.jsxs(_,{title:"2 · Think & remember",sub:"Do the work and keep the results.",tint:"border-slate-200 bg-slate-50",children:[s.jsx(H,{id:"ctl"}),s.jsx(H,{id:"regs"}),s.jsx(H,{id:"alu"}),s.jsx(H,{id:"flags"}),s.jsx(H,{id:"dmem"})]})]}),s.jsx("div",{className:"lg:col-span-4",children:s.jsxs(_,{title:"3 · Talk to the world",sub:"I/O bus, then the add-on accelerator.",tint:"border-indigo-200 bg-indigo-50/40",children:[s.jsx(H,{id:"bus"}),s.jsxs("div",{className:"grid gap-2 rounded-xl border border-dashed border-indigo-300 p-2",children:[s.jsx("div",{className:"px-1 text-[11px] font-semibold uppercase tracking-wide text-indigo-700",children:"int8 accelerator · ports 0x50–0x5F"}),s.jsx(H,{id:"nn"}),s.jsx(H,{id:"mac"}),s.jsx(H,{id:"act"}),s.jsx(H,{id:"lut"})]})]})})]}),s.jsxs("div",{className:"mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4",children:[s.jsxs("div",{className:"flex flex-wrap items-center justify-between gap-2",children:[s.jsx("div",{className:"font-semibold text-slate-900",children:On[x].name}),s.jsxs("code",{className:"font-mono text-xs text-slate-500",children:["rtl/",On[x].file]})]}),s.jsx("p",{className:"mt-1 text-slate-700",children:On[x].plain}),s.jsxs("p",{className:"mt-1 text-sm text-slate-500",children:[s.jsx("span",{className:"font-medium text-slate-600",children:"Technical: "}),On[x].tech]})]})]})}const kd=[{label:"Typical Setosa",cm:[5.1,3.5,1.4,.2]},{label:"Typical Versicolor",cm:[5.9,2.8,4.3,1.3]},{label:"Typical Virginica",cm:[6.7,3.1,5.6,2.4]}],Zh=["bg-sky-500","bg-emerald-500","bg-fuchsia-500"];function Vh(){const[o,E]=Bt.useState(()=>Vd(kd[1].cm)),[b,f]=Bt.useState(null),x=Bt.useMemo(()=>Zd(o),[o]),D=Bt.useMemo(()=>Es.map(S=>Zd(S.x).predicted===S.y),[]),C=S=>(Dn[S].min+o[S]/127*(Dn[S].max-Dn[S].min)).toFixed(1),X=Math.max(...x.logits)-Math.min(...x.logits);return s.jsxs("div",{className:"grid gap-5 lg:grid-cols-5",children:[s.jsxs("div",{className:"card lg:col-span-2",children:[s.jsx("div",{className:"label",children:"1 · Describe a flower"}),s.jsx("div",{className:"mt-3 space-y-3",children:Dn.map((S,y)=>s.jsxs("label",{className:"block text-sm",children:[s.jsxs("div",{className:"flex justify-between text-slate-700",children:[s.jsx("span",{children:S.name}),s.jsxs("span",{className:"font-mono",children:[C(y)," cm ",s.jsxs("span",{className:"text-slate-400",children:["→ ",o[y]]})]})]}),s.jsx("input",{type:"range",min:0,max:127,value:o[y],className:"w-full accent-indigo-600",onChange:H=>{const _=[...o];_[y]=Number(H.target.value),E(_),f(null)}})]},S.name))}),s.jsx("div",{className:"mt-3 flex flex-wrap gap-2",children:kd.map(S=>s.jsx("button",{className:"chip",onClick:()=>{E(Vd(S.cm)),f(null)},children:S.label},S.label))}),s.jsxs("div",{className:"mt-5 border-t border-slate-100 pt-4",children:[s.jsx("div",{className:"label",children:"Or load one of the 23 real test flowers"}),s.jsx("div",{className:"mt-2 flex flex-wrap gap-1.5",children:Es.map((S,y)=>s.jsx("button",{title:`Test flower ${y+1}: really ${Wu[S.y]} — network ${D[y]?"got it right":"got it wrong"}`,onClick:()=>{E(S.x),f(y)},className:`h-6 w-6 rounded-md text-[10px] font-semibold text-white ${D[y]?"bg-emerald-500":"bg-rose-500"} ${b===y?"ring-2 ring-slate-900 ring-offset-1":""}`,children:y+1},y))}),s.jsxs("p",{className:"mt-2 text-xs text-slate-500",children:["Green = classified correctly (22), red = wrong (1). ",b!==null&&s.jsxs(s.Fragment,{children:["Flower ",b+1," is really ",s.jsx("strong",{children:Wu[Es[b].y]}),"."]})]})]})]}),s.jsxs("div",{className:"card lg:col-span-3",children:[s.jsx("div",{className:"label",children:"2 · Six “detectors” react (hidden layer)"}),s.jsx("div",{className:"mt-2 grid grid-cols-6 gap-2",children:x.hidden.map((S,y)=>s.jsxs("div",{className:"text-center",children:[s.jsx("div",{className:"flex h-20 items-end rounded-md bg-slate-100",children:s.jsx("div",{className:"w-full rounded-md bg-indigo-500 transition-all",style:{height:`${S/127*100}%`}})}),s.jsx("div",{className:"mt-1 font-mono text-[11px] text-slate-600",children:S===0?"off":S})]},y))}),s.jsx("p",{className:"mt-1 text-xs text-slate-500",children:"A detector that outputs 0 is “off”. Any multiply involving a 0 is skipped by the hardware."}),s.jsx("div",{className:"label mt-5",children:"3 · Three scores, highest wins (output layer)"}),s.jsx("div",{className:"mt-2 space-y-2",children:Wu.map((S,y)=>s.jsxs("div",{className:"flex items-center gap-3 text-sm",children:[s.jsx("div",{className:`w-24 ${x.predicted===y?"font-bold text-slate-900":"text-slate-500"}`,children:S}),s.jsx("div",{className:"h-4 flex-1 rounded bg-slate-100",children:s.jsx("div",{className:`h-4 rounded transition-all ${x.predicted===y?Zh[y]:"bg-slate-300"}`,style:{width:`${x.logits[y]/255*100}%`}})}),s.jsx("div",{className:"w-8 text-right font-mono text-xs text-slate-500",children:x.logits[y]})]},S))}),s.jsxs("div",{className:"mt-4 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl bg-slate-900 px-4 py-3 text-slate-100",children:[s.jsxs("div",{className:"text-lg font-semibold",children:["Prediction: ",s.jsx("span",{className:"text-emerald-300",children:Wu[x.predicted]}),X<12&&s.jsx("span",{className:"ml-2 text-xs font-normal text-amber-300",children:"close call"})]}),s.jsxs("div",{className:"font-mono text-xs text-slate-400",children:[x.macs," multiplies done · ",x.skipped," skipped (zero)"]})]})]})]})}const $d=[{id:"b0",name:"Software, repeated addition",plain:"No helper chip. 6 × 7 is done as 7 additions.",cycles:43155,range:"41,637–44,678",hw:!1},{id:"b1",name:"Software, shift-and-add",plain:"No helper chip. A smarter software multiply, but each step costs more instructions.",cycles:24427,range:"24,135–24,654",hw:!1},{id:"a0",name:"Accelerator, looped",plain:"Chip multiplies; software still does the rescale and ReLU.",cycles:2172,range:"2,171–2,175",hw:!0},{id:"a2",name:"Accelerator + hardware tables",plain:"Chip multiplies, rescales and applies the activation table.",cycles:2071,range:"2,071",hw:!0},{id:"a4",name:"Accelerator, unrolled",plain:"Same, but the loop is removed: each weight is written straight into the program.",cycles:1087,range:"1,087",hw:!0}];function Kh(){const[o,E]=Bt.useState(!1),[b,f]=Bt.useState("b0"),x=$d.find(C=>C.id===b).cycles,D=C=>o?(Math.log10(C)-2.5)/(Math.log10(45e3)-2.5)*100:C/45e3*100;return s.jsxs("div",{className:"card",children:[s.jsxs("div",{className:"flex flex-wrap items-center gap-2",children:[s.jsx("span",{className:"text-sm text-slate-600",children:"Compare against"}),["b0","b1"].map(C=>s.jsx("button",{onClick:()=>f(C),className:`chip ${b===C?"chip-on":""}`,children:C==="b0"?"repeated addition":"shift-and-add"},C)),s.jsxs("button",{onClick:()=>E(C=>!C),className:"chip ml-auto",children:[o?"Log scale":"Linear scale"," · switch"]})]}),s.jsx("div",{className:"mt-4 space-y-4",children:$d.map(C=>s.jsxs("div",{children:[s.jsxs("div",{className:"flex flex-wrap items-baseline justify-between gap-2 text-sm",children:[s.jsxs("div",{children:[s.jsx("span",{className:"font-mono text-xs text-slate-400",children:C.id})," ",s.jsx("span",{className:"font-semibold text-slate-900",children:C.name})]}),s.jsxs("div",{className:"font-mono text-slate-700",children:[C.cycles.toLocaleString()," cycles ",s.jsxs("span",{className:"ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs",children:[(x/C.cycles).toFixed(1),"×"]})]})]}),s.jsx("div",{className:"mt-1 h-5 rounded bg-slate-100",children:s.jsx("div",{className:`h-5 rounded transition-all ${C.hw?"bg-indigo-500":"bg-slate-400"}`,style:{width:`${Math.max(1.5,D(C.cycles))}%`}})}),s.jsxs("div",{className:"mt-0.5 text-xs text-slate-500",children:[C.plain," ",s.jsxs("span",{className:"text-slate-400",children:["(range over 23 flowers: ",C.range,")"]})]})]},C.id))})]})}const Jh=[["overview","Overview"],["cpu","The processor"],["try","Try it"],["cnn","CNN extension"],["speed","Speed"],["proof","Proof"],["reference","Reference"]];function kh(){return s.jsxs("div",{className:"min-h-screen bg-white text-slate-800",children:[s.jsx("nav",{className:"sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur",children:s.jsxs("div",{className:"mx-auto flex h-12 max-w-6xl items-center gap-5 overflow-x-auto px-5 text-sm",children:[s.jsx("a",{href:"#top",className:"shrink-0 font-bold text-slate-900",children:"DSD-8"}),Jh.map(([o,E])=>s.jsx("a",{href:`#${o}`,className:"shrink-0 text-slate-600 hover:text-indigo-700",children:E},o))]})}),s.jsx("header",{id:"top",className:"bg-gradient-to-b from-indigo-50 to-white",children:s.jsxs("div",{className:"mx-auto max-w-6xl px-5 pb-14 pt-14",children:[s.jsxs("div",{className:"grid items-center gap-10 lg:grid-cols-2",children:[s.jsxs("div",{children:[s.jsx("div",{className:"text-xs font-semibold uppercase tracking-widest text-indigo-600",children:"Sukkur IBA University · Digital System Design · Dr. Asim Samejo"}),s.jsx("div",{className:"text-xs font-semibold uppercase tracking-widest text-indigo-600",children:"Submitted by: Hamadullah Bijarani, Areeb Memon, Sarang Khoso"}),s.jsx("h1",{className:"mt-3 text-3xl font-bold leading-tight tracking-tight text-slate-900 sm:text-4xl xl:text-5xl",children:"A tiny computer we built from scratch, then taught to recognise flowers and images."}),s.jsxs("p",{className:"mt-5 text-lg leading-relaxed text-slate-600",children:[s.jsx("strong",{className:"text-slate-900",children:"DSD-8"})," is a simple 8-bit processor written in Verilog (a language for describing chips). It can only add, compare and move bytes, so doing neural-network maths on it is painfully slow. We attached a small helper chip, the ",s.jsx("strong",{className:"text-slate-900",children:"accelerator"}),", that does the multiplying in hardware, and measured how much faster it makes things. Then we ran a second, bigger job on the very same hardware: a small image-classifying CNN."]})]}),s.jsxs("figure",{children:[s.jsx("img",{src:"https://static.vecteezy.com/system/resources/previews/055/388/580/non_2x/beautiful-purple-iris-flower-isolated-against-a-clean-transparent-background-showcasing-vibrant-colors-and-intricate-details-iris-flower-isolated-on-transparent-background-free-png.png",alt:"Iris versicolor flower",className:"aspect-[16/11] w-full rounded-2xl object-cover shadow-lg",width:"980",height:"980"}),s.jsx("figcaption",{className:"mt-2 text-xs text-slate-500",children:"Iris versicolor, one of the three species the network classifies. Photo: Wikimedia Commons."})]})]}),s.jsx("div",{className:"mt-8 grid grid-cols-2 gap-3 lg:grid-cols-3",children:[["39.7×","faster on Iris","the best accelerated program vs. plain software: 1,087 vs. 43,155 clock cycles"],["17.7×","faster on a CNN","8×8 image classifier: 57,658 vs. 1,018,701 cycles, on the same unchanged hardware"],["22 of 23","flowers right","95.65% accuracy on Iris test flowers, using only 8-bit whole numbers"],["59 of 64","images right","92.2% int8 accuracy on the CNN’s 64 test images (float: 57 of 64)"],["486 / 486","runs identical","230 flower runs and 256 image runs each matched an independent Python model step by step"],["13 / 13","tests pass","plus clean static lint and 2 whole-program checks"]].map(([o,E,b])=>s.jsxs("div",{className:"rounded-2xl border border-slate-200 bg-white p-4 shadow-sm",children:[s.jsx("div",{className:"text-3xl font-bold tracking-tight text-indigo-700",children:o}),s.jsx("div",{className:"text-sm font-semibold text-slate-900",children:E}),s.jsx("div",{className:"mt-1 text-xs leading-snug text-slate-500",children:b})]},o))})]})}),s.jsxs(Zl,{id:"overview",kicker:"Overview",title:"What we built, in three parts",lead:"Think of a very small calculator that follows a written program, a specialist assistant that does one job very fast, and a pile of checks proving the two agree.",children:[s.jsx("div",{className:"grid gap-5 md:grid-cols-3",children:[["1","The processor","DSD-8 reads a program one instruction at a time: 16 instructions, 8 registers, 512 program slots, 256 bytes of data memory. It is a “Harvard” design, meaning program and data live in separate memories."],["2","The accelerator","A multiply-and-add engine on the processor’s I/O bus (ports 0x50–0x5F). It works on signed 8-bit integers (int8), skips multiplications by zero, and can apply activation curves from built-in tables. It stays locked until software writes the key 0xA5, so old programs are unaffected. A second workload, a small CNN, reuses it with no hardware change."],["3","The proof","A custom assembler and a Python “golden” simulator define what correct looks like. The Verilog must match it instruction by instruction, across unit tests, whole programs and 486 neural-network runs (230 flower + 256 image)."]].map(([o,E,b])=>s.jsxs("div",{className:"card",children:[s.jsx("div",{className:"flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-sm font-bold text-white",children:o}),s.jsx("h3",{className:"mt-3 text-lg font-semibold text-slate-900",children:E}),s.jsx("p",{className:"mt-1 text-sm leading-relaxed text-slate-600",children:b})]},o))}),s.jsxs("div",{className:"mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm leading-relaxed text-slate-600",children:[s.jsx("strong",{className:"text-slate-900",children:"The workflow:"})," write assembly (",s.jsx(Ht,{children:".asm"}),") → ",s.jsx(Ht,{children:"dsd8asm.py"})," turns it into machine code (",s.jsx(Ht,{children:".hex"}),") → run it on the Python golden simulator ",s.jsx("em",{children:"and"})," on the Verilog design → compare the two traces line by line. A trace line records every instruction that finishes (“retires”) and what it changed."]})]}),s.jsxs(Zl,{id:"cpu",tone:"soft",kicker:"Interactive diagram",title:"How the processor runs one instruction",lead:"Pick an instruction and step through it. Lit-up blocks are the parts working in that stage. Click any block to learn what it does (plain English first, technical detail underneath).",children:[s.jsx(Qh,{}),s.jsxs("div",{className:"mt-8 grid gap-5 lg:grid-cols-2",children:[s.jsxs("div",{className:"card",children:[s.jsx("div",{className:"label",children:"Every instruction is 16 bits"}),s.jsxs("div",{className:"mt-3 flex overflow-hidden rounded-lg text-center font-mono text-[11px] text-white",children:[s.jsxs("div",{className:"w-1/4 bg-indigo-700 py-2",children:["opcode",s.jsx("br",{}),"15–12"]}),s.jsxs("div",{className:"w-1/4 bg-sky-600 py-2",children:["rd",s.jsx("br",{}),"11–9"]}),s.jsxs("div",{className:"w-1/4 bg-emerald-600 py-2",children:["rs1 · rs2",s.jsx("br",{}),"8–3"]}),s.jsxs("div",{className:"w-1/4 bg-slate-500 py-2",children:["spare / imm8",s.jsx("br",{}),"low bits"]})]}),s.jsxs("p",{className:"mt-3 text-sm text-slate-600",children:["The first 4 bits pick one of 16 operations. The rest name the registers, or hold a number or a jump address. Immediates are 0–255 only, so a negative int8 such as −2 is written as its two’s-complement byte ",s.jsx(Ht,{children:"0xFE"}),"."]})]}),s.jsxs("div",{className:"card",children:[s.jsx("div",{className:"label",children:"The 16 instructions"}),s.jsx("dl",{className:"mt-2 grid grid-cols-[auto,1fr] gap-x-4 gap-y-1 text-sm",children:[["Move","NOP · LDI Rd,imm · LD Rd,[Rp] · ST [Rp],Rs"],["Calculate","ADD · SUB · AND · OR · XOR · SHL · SHR"],["Compare","CMP (sets flags only)"],["Jump","JMP · BEQ BNE BCS BCC BMI BPL BVS BVC"],["Outside","IN Rd,port · OUT port,Rs"],["Stop","HLT"]].map(([o,E])=>s.jsxs(Bt.Fragment,{children:[s.jsx("dt",{className:"font-semibold text-slate-900",children:o}),s.jsx("dd",{className:"font-mono text-[12px] text-slate-600",children:E})]},o))}),s.jsxs("p",{className:"mt-3 text-xs text-slate-500",children:["Flags are always ordered Z N C V. For SUB/CMP, carry = 1 means “no borrow”. Branches use absolute 9-bit addresses. ",s.jsx(Ht,{children:"MOV"})," and ",s.jsx(Ht,{children:"NOT"})," are assembler shortcuts built from OR and XOR."]})]})]})]}),s.jsx(Zl,{id:"try",kicker:"Interactive simulator",title:"Write and run real DSD-8 programs",lead:"This is a browser version of the assembler and simulator, with three ways to look at the same run. Current view shows registers, flags and LEDs. Diagram view animates every instruction through the processor, one clock cycle at a time. Waveform view draws each signal over time, like GTKWave. Choose an example (or edit it), then Step, Play or Run to end. I checked it against the repository’s reference programs: it retires the same 11, 51 and 44 instructions.",children:s.jsxs(Bt.Fragment,{children:[s.jsx(DvFs,{}),s.jsx(Gh,{})]})}),s.jsx(Zl,{id:"cnn",tone:"soft",kicker:"Second workload",title:"The same hardware reads small images",lead:"After the flower network, we asked a harder question: can the unchanged processor and accelerator run a convolutional neural network (CNN) that classifies 8×8 pictures into four classes? Nothing under rtl/ was modified; the new work is software, a simulation-only data-stream device and tests.",children:s.jsx(CnnBody,{})}),s.jsxs(Zl,{id:"speed",kicker:"Results",title:"How much faster is it?",lead:"Same processor, same inputs, same network, several different programs, for two workloads: the Iris flower network and the CNN. “Cycles” are clock ticks counted between two marker writes, so setup and the final class selection are excluded. Lower is better.",children:[s.jsx(Kh2,{}),s.jsxs("div",{className:"mt-5 grid gap-4 md:grid-cols-2",children:[s.jsxs("div",{className:"card text-sm leading-relaxed text-slate-600",children:[s.jsx("strong",{className:"text-slate-900",children:"Why isn’t shift-and-add much better?"})," It needs fewer loop trips but more instructions per trip, so on an 8-bit CPU with no multiply it is only about 1.8× faster than repeated addition."]}),s.jsxs("div",{className:"card text-sm leading-relaxed text-slate-600",children:[s.jsx("strong",{className:"text-slate-900",children:"“Posted” mode gave no gain here."})," Posted mode lets the CPU keep going after a multiply write. But our programs read the result right away, so the waiting just moves from the write to the read. Overlapping several multiplies first would help (future work)."]})]})]}),s.jsxs(Zl,{id:"proof",tone:"soft",kicker:"Verification",title:"How we know it is correct",lead:"Passing your own tests proves little if the tests copy your own mistakes. So there are four independent layers.",children:[s.jsx("div",{className:"grid gap-4 md:grid-cols-2 lg:grid-cols-4",children:[["Lint","Verilator checks the Verilog for latches, width bugs and unused signals. Clean."],["13 unit testbenches","Each block (ALU, memory, PC, bus, MAC, activation tables…) is tested alone, including 10,000 random vectors for the ALU and the multiplier."],["Whole-program traces","A Python model and the Verilog run the same program. Every retired instruction’s registers, memory writes and flags must match, byte for byte."],["486 network runs","Flowers: 23 × 5 programs × 2 bus modes = 230. Images: 64 × 4 programs = 256. Each must match the golden trace, break no bus rule, and light the LED for the class the reference model predicts."]].map(([o,E],b)=>s.jsxs("div",{className:"card",children:[s.jsxs("div",{className:"text-xs font-bold text-indigo-600",children:["LAYER ",b+1]}),s.jsx("h3",{className:"mt-1 font-semibold text-slate-900",children:o}),s.jsx("p",{className:"mt-1 text-sm leading-relaxed text-slate-600",children:E})]},o))}),s.jsxs("div",{className:"mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-relaxed text-amber-950",children:[s.jsx("strong",{children:"What this does not show:"}),s.jsxs("ul",{className:"mt-2 list-disc space-y-1 pl-5",children:[s.jsx("li",{children:"The 95.65% is measured on the same 23 flowers used to choose the rescale shifts, and the scaling limits came from the full dataset. Treat it as “accuracy of the shipped model”, not an independent estimate."}),s.jsx("li",{children:"Speeds are simulated clock cycles, not seconds. We did not synthesize for an FPGA, so there are no area, clock-speed or power numbers, and no board constraints or bitstream are included."}),s.jsxs("li",{children:["Iris is a very small problem, and ",s.jsx(Ht,{children:"a4"}),"’s speed-up comes from removing loops as well as from the hardware multiplier."]}),s.jsx("li",{children:"The CNN’s images are generated procedurally, not a public dataset, and its stream device exists only in simulation. Up to 5 of its 64 test images differ from their label; that is model error, and verification compares against the integer reference, not the label."}),s.jsx("li",{children:"The two conformance programs in the repo are worked examples, not the instructor’s hidden suite."})]})]})]}),s.jsx(Zl,{id:"reference",kicker:"Reference",title:"The technical details",lead:"Important concepts related to the project.",children:s.jsxs("div",{className:"space-y-3",children:[s.jsxs(Vl,{title:"Processor at a glance",children:[s.jsx(_n,{head:["Resource","Size"],rows:[["Registers","8 × 8-bit (R0–R7)"],["Program memory","512 × 16-bit; 9-bit PC"],["Data memory","256 × 8-bit"],["ALU","8-bit"],["Flags","Z N C V"],["Control states","6: FETCH, DECODE, EXECUTE, MEM_IO, WRITEBACK, HALTED_S"],["Accelerator accumulator","signed 24-bit, wrapping"]]}),s.jsx("p",{className:"mt-3",children:"Cycles per instruction: NOP/HLT 2 · CMP/JMP/branch 3 · ALU, shifts, LDI, ST 4 · LD 5 · OUT 4 + wait · IN 5 + wait. Exactly one “retire” per instruction."})]}),s.jsxs(Vl,{title:"I/O port map",children:[s.jsx(_n,{head:["Port","Dir","What it is"],rows:[["0x00","R","switches"],["0x01","R","buttons (bits 4:0)"],["0x02","W","LEDs"],["0x10 / 0x11","W","seven-segment value / enable"],["0x20 / 0x21 / 0x22","W/R/R","simulated UART transmit / receive (always empty) / status"],["0x30 / 0x31","R/W","simulated timer count / control"],["0x40","R/W","delayed-echo test peripheral (0–7 cycle delay)"],["0x44 / 0x45 / 0x46","W/R/R","CNN stream peripheral (simulation only): skip to next sample / next byte (image phase) / next byte (weight phase)"],["0x50–0x5F","R/W","int8 accelerator"],["everything else","—","forwarded; the simulation model answers at once with 0 and ignores writes"]]}),s.jsxs("p",{className:"mt-3",children:["Bus rule: an access happens only when the request and ",s.jsx(Ht,{children:"io_ready"})," are both high, and ",s.jsx(Ht,{children:"io_ready"})," must stay low when nothing is requested."]})]}),s.jsxs(Vl,{title:"Accelerator registers (0x50–0x5F)",children:[s.jsx(_n,{head:["Port","Name","Use"],rows:[["0x50","NN_A","W · latch signed activation operand"],["0x51","NN_W","W · latch weight and start one multiply-accumulate"],["0x52","NN_CTRL","W · bit 0 clear accumulator, bit 1 clear counters"],["0x53–0x55","NN_ACC0–2","R · accumulator low / middle / high byte"],["0x56","NN_SHIFT","W · right shift 0–15"],["0x57","NN_QOUT","R · sat8(acc >>> shift)"],["0x58","NN_LUT_SEL","W · table bank 0 ReLU, 1 sigmoid, 2 offset-binary, 3 tanh"],["0x59","NN_ACT","R · activated, rescaled accumulator"],["0x5A / 0x5B","NN_LUT_IDX / VAL","W / R · look up any table entry directly"],["0x5C / 0x5D","NN_SKIPCNT / MACCNT","R · skipped / performed multiplies (saturate at 255)"],["0x5E","reserved","reads 0, writes ignored"],["0x5F","NN_KEY","W 0xA5 unlocks (any other value relocks) · R returns {busy, unlocked}"]]}),s.jsx("p",{className:"mt-3",children:"While locked, writes are dropped, reads return 0 and the bus is ready immediately. Reads of results wait (at most 4 cycles in tests) until the multiplier pipeline drains. In blocking mode a non-zero weight write waits for the pipeline; in posted mode it does not."})]}),s.jsxs(Vl,{title:"Neural-network program layout (data memory)",children:[s.jsx(_n,{head:["Addresses","Contents"],rows:[["0–29","layer-1 weights, bias last for each of 6 hidden neurons"],["32–52","layer-2 weights, bias last for each of 3 outputs"],["64–70","6 hidden values + constant 127"],["72–74","3 output scores (offset-binary)"],["80–84","4 inputs + constant 127"],["96–101","software-baseline scratch (pointers, counters)"]]}),s.jsx("p",{className:"mt-3",children:"Largest generated programs: a4 = 303, b0 = 388, b1 = 434 instructions (limit 512). Software baselines use 16-bit sums; the generator checks every result fits (worst case 27,722)."})]}),s.jsxs(Vl,{title:"CNN extension details",children:[s.jsx(_n,{head:["Item","Value"],rows:[["Network","8×8 image → 3×3 conv ×4 → ReLU → 2×2 max-pool → FC 36×4 → argmax"],["Stream","64 samples × 252 bytes = 16,128 bytes (64 image + 4×10 conv weights + 4×37 FC weights)"],["Data memory","pooled features 128–163, logits 168–171, scratch 176–196"],["Accumulator in software","R1:R2:R3 (b0); DMEM 181–183 then copied to registers (b1)"],["Accuracy","float 0.891 (57/64), int8 0.922 (59/64)"],["Runs","64 samples × 4 variants = 256, all pass; intermediate pool and logit cells match cnn_ref byte for byte"]]}),s.jsxs("p",{className:"mt-3",children:["Stream file and start sample are chosen with ",s.jsx(Ht,{children:"+CNNSTREAM=<file>"})," and ",s.jsx(Ht,{children:"+CNNSAMP=<index>"}),", like ",s.jsx(Ht,{children:"+IMEM"}),". The golden model is ",s.jsx(Ht,{children:"tools/dsd8sim_cnn.py"}),"; the reference is ",s.jsx(Ht,{children:"cnn/cnn_ref.py"}),"."]})]}),s.jsxs(Vl,{title:"Run it yourself",children:[s.jsx("pre",{className:"overflow-x-auto rounded-lg bg-slate-900 p-3 font-mono text-xs leading-relaxed text-slate-100",children:`sudo apt install python3 python3-numpy iverilog verilator gtkwave
+`).length),className:"w-full resize-none bg-transparent py-3 pr-3 font-mono text-[12px] leading-5 text-emerald-200 outline-none","aria-label":"Assembly source"})]})}),!S.ok&&s.jsx("p",{className:"mt-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700",children:S.errors[0]}),s.jsxs("div",{className:"mt-3 flex flex-wrap items-center gap-2",children:[s.jsx("button",{className:"btn btn-dark",onClick:O,disabled:!S.ok||x.halted,children:"Step"}),s.jsx("button",{className:"btn",onClick:()=>X(B=>!B),disabled:!S.ok||x.halted,children:C?"Pause":"Play"}),s.jsx("button",{className:"btn",onClick:Y,disabled:!S.ok,children:"Run to end"}),s.jsx("button",{className:"btn",onClick:()=>H(),children:"Reset"}),s.jsxs("span",{className:"ml-auto text-xs text-slate-500",children:[S.ok?`${S.programLength} instructions`:"fix the error to run"," · you can edit the code"]})]})]}),dv_V==="current"?s.jsxs("div",{className:"space-y-4 lg:col-span-2",children:[s.jsxs("div",{className:"card",children:[s.jsx("div",{className:"label",children:"Now running"}),s.jsx("div",{className:"mt-1 font-mono text-sm text-slate-900",children:U?U.disasm:"press Step to begin"}),s.jsxs("div",{className:"mt-1 text-xs text-slate-500",children:[U&&U.rfWe?`R${U.rdAddr} ← 0x${jn(U.rfData)}`:"",U&&U.memWe?`memory[0x${jn(U.memAddr)}] ← 0x${jn(U.memData)}`:"",x.halted?" · stopped (HLT)":""]}),s.jsxs("div",{className:"mt-3 flex items-center gap-3",children:[s.jsx("div",{className:"label",children:"LEDs"}),s.jsx("div",{className:"flex gap-1.5",children:[7,6,5,4,3,2,1,0].map(B=>s.jsx("span",{className:`h-3.5 w-3.5 rounded-full ${x.leds>>B&1?"bg-amber-400 shadow-[0_0_8px_2px_rgba(251,191,36,.6)]":"bg-slate-200"}`},B))}),s.jsxs("div",{className:"font-mono text-sm",children:["0x",jn(x.leds)," = ",x.leds]})]})]}),s.jsxs("div",{className:"card",children:[s.jsx("div",{className:"label",children:"Registers (8 × 8-bit)"}),s.jsx("div",{className:"mt-2 grid grid-cols-4 gap-2",children:Array.from(x.regs).map((B,M)=>s.jsxs("div",{className:`rounded-lg border px-2 py-1.5 text-center ${U&&U.rfWe&&U.rdAddr===M?"border-indigo-400 bg-indigo-50":"border-slate-200"}`,children:[s.jsxs("div",{className:"text-[10px] text-slate-500",children:["R",M]}),s.jsx("div",{className:"font-mono text-sm",children:jn(B)}),s.jsx("div",{className:"font-mono text-[10px] text-slate-400",children:B})]},M))}),s.jsxs("div",{className:"mt-3 flex flex-wrap gap-2 text-xs",children:[["Z","N","C","V"].map(B=>s.jsxs("span",{className:`rounded-md px-2 py-0.5 font-mono ${x.flags[B]?"bg-indigo-600 text-white":"bg-slate-100 text-slate-500"}`,children:[B,"=",x.flags[B]]},B)),s.jsxs("span",{className:"ml-auto text-slate-500",children:["PC ",x.pc," · ",x.retiredCount," done · ",x.cycleCount," cycles"]})]})]}),s.jsxs("div",{className:"card",children:[s.jsxs("div",{className:"flex items-center justify-between",children:[s.jsx("div",{className:"label",children:"Accelerator"}),s.jsx("span",{className:`rounded-full px-2 py-0.5 text-[11px] font-medium ${x.nn.unlocked?"bg-emerald-100 text-emerald-800":"bg-slate-100 text-slate-500"}`,children:x.nn.unlocked?"unlocked":"locked"})]}),s.jsx("div",{className:"mt-2 grid grid-cols-4 gap-2 text-center",children:[["sum",x.nn.acc],["multiplies",x.nn.macCnt],["skipped",x.nn.skipCnt],["activated",I]].map(([B,M])=>s.jsxs("div",{className:"rounded-lg border border-slate-200 py-1.5",children:[s.jsx("div",{className:"text-[10px] text-slate-500",children:B}),s.jsx("div",{className:"font-mono text-sm",children:M})]},B))})]}),K.length>1&&s.jsxs("div",{className:"card",children:[s.jsx("div",{className:"label",children:"Recent steps"}),s.jsx("ul",{className:"mt-1 space-y-0.5 font-mono text-[11px] text-slate-600",children:K.map(B=>s.jsxs("li",{children:[String(B.seq).padStart(3,"0")," · pc ",B.pc," · ",B.disasm]},B.seq))})]})]}):dv_right({x,S,plan:dv_plan,st:dv_st,setSt:dv_setSt,cyc:dv_cyc,step:O,V:dv_V})]})]})}const Zl=({id:o,tone:E="white",kicker:b,title:f,lead:x,children:D})=>s.jsx("section",{id:o,className:`scroll-mt-14 py-16 ${E==="soft"?"bg-slate-50":"bg-white"}`,children:s.jsxs("div",{className:"mx-auto max-w-6xl px-5",children:[s.jsxs("div",{className:"mb-8 max-w-3xl",children:[s.jsx("div",{className:"text-xs font-semibold uppercase tracking-widest text-indigo-600",children:b}),s.jsx("h2",{className:"mt-1 text-3xl font-bold tracking-tight text-slate-900",children:f}),x&&s.jsx("p",{className:"mt-3 text-lg leading-relaxed text-slate-600",children:x})]}),D]})}),Ht=({children:o})=>s.jsx("code",{className:"rounded bg-slate-100 px-1 py-0.5 font-mono text-[0.85em] text-slate-800",children:o}),Vl=({title:o,children:E})=>s.jsxs("details",{className:"group rounded-xl border border-slate-200 bg-white",children:[s.jsxs("summary",{className:"flex cursor-pointer list-none items-center justify-between px-4 py-3 font-medium text-slate-900",children:[o,s.jsx("span",{className:"text-slate-400 transition group-open:rotate-180",children:"⌄"})]}),s.jsx("div",{className:"overflow-x-auto border-t border-slate-100 px-4 py-4 text-sm leading-relaxed text-slate-600",children:E})]}),_n=({head:o,rows:E})=>s.jsxs("table",{className:"w-full min-w-[480px] text-left text-sm",children:[s.jsx("thead",{children:s.jsx("tr",{className:"border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500",children:o.map(b=>s.jsx("th",{className:"py-1.5 pr-4 font-semibold",children:b},b))})}),s.jsx("tbody",{children:E.map((b,f)=>s.jsx("tr",{className:"border-b border-slate-100 align-top last:border-0",children:b.map((x,D)=>s.jsx("td",{className:`py-1.5 pr-4 ${D===0?"font-mono text-[13px] text-slate-900":""}`,children:x},D))},f))})]}),On={pc:{name:"Program counter",plain:"A bookmark holding the address of the next instruction.",tech:"9-bit register (0x000–0x1FF). A taken branch loads a new address instead of adding 1.",file:"prog_counter.v"},imem:{name:"Program memory",plain:"Where the program is stored: 512 instructions of 16 bits each.",tech:"512 × 16-bit memory, read-only to software (Harvard design), filled with $readmemh or the +IMEM plusarg.",file:"instr_memory.v"},dec:{name:"Decoder",plain:"Splits the 16-bit instruction into “what to do” and “with what”.",tech:"Pure wiring, no state: opcode [15:12], rd, rs1, rs2, imm8, addr9, cond, port.",file:"instr_decoder.v"},ctl:{name:"Control unit",plain:"The conductor. Walks each instruction through its stages and says when it is finished.",tech:"6-state FSM (FETCH, DECODE, EXECUTE, MEM_IO, WRITEBACK, HALTED_S). Emits exactly one “retire” per instruction. Waits in MEM_IO until io_ready.",file:"control_unit.v"},regs:{name:"Registers R0–R7",plain:"Eight tiny scratch pads, each holding one byte (0–255).",tech:"8 × 8-bit, two asynchronous read ports, one synchronous write port. No register is hard-wired to zero.",file:"register_file.v"},alu:{name:"ALU (calculator)",plain:"Adds, subtracts, compares, combines bits and shifts bytes.",tech:"8-bit: ADD SUB AND OR XOR SHL SHR CMP. Subtract carry means “no borrow”, so C=1 ⇒ a ≥ b (unsigned).",file:"alu.v"},flags:{name:"Flags",plain:"Four yes/no notes about the last result: zero? negative? carry? overflow?",tech:"Registered Z, N, C, V (always in that order). Branch instructions test them.",file:"flags_reg.v"},dmem:{name:"Data memory",plain:"256 bytes of storage for numbers. You point at a spot using a register.",tech:"256 × 8-bit, combinational read, synchronous write. Only register-indirect [Rp] addressing.",file:"data_memory.v"},bus:{name:"I/O bus",plain:"The doorway to the outside world: switches, LEDs, timers and the accelerator.",tech:"Request/ready handshake: a write only takes effect when request AND ready are both high. 0x00–0x1F local, 0x20+ external, 0x50–0x5F accelerator.",file:"io_bus.v"},nn:{name:"Accelerator front desk",plain:"Locked after reset. Writing the key 0xA5 opens it. Counts multiplies done and skipped.",tech:"Decodes ports 0x50–0x5F, lock gate, ready policy, zero-skip, saturating 8-bit counters.",file:"nn_accel.v"},mac:{name:"Multiplier pipeline",plain:"Multiplies two signed bytes and adds the product to a running total, in three overlapping stages.",tech:"signed 8×8 → 16-bit product → wrapping signed 24-bit accumulator; busy = v1|v2|v3.",file:"nn_mac_pipe.v"},act:{name:"Rescale & clamp",plain:"Shrinks the big running total back into one byte so it can feed the next layer.",tech:"sat8(acc >>> shift), shift 0–15, readable at NN_QOUT (0x57).",file:"nn_act.v"},lut:{name:"Activation tables",plain:"A look-up table that applies the network’s “curve” (ReLU, sigmoid, tanh) instantly.",tech:"4 banks × 256 bytes: ReLU, sigmoid, offset-binary, tanh. Generated by nn/gen_lut.py, never hand-edited.",file:"nn_lut_rom.v"}},Kd=[{n:"Fetch",d:"grab the next instruction"},{n:"Decode",d:"work out what it means"},{n:"Execute",d:"calculate or decide"},{n:"Memory / I-O",d:"talk to memory or a device"},{n:"Write back",d:"store the answer"},{n:"Halted",d:"stay stopped"}],Xh=["FETCH","DECODE","EXECUTE","MEM_IO","WRITEBACK","HALTED_S"],Nl={stage:0,plain:"The program counter points at the next instruction; program memory hands it over, and the counter moves on by one.",tech:"pc_en=1, ir_we=1 — IR and IR_PC latched, PC+1",on:["pc","imem","ctl"]},Jd=[{label:"Add two numbers",code:"ADD R3, R3, R1",cycles:"4 cycles",steps:[Nl,{stage:1,plain:"The decoder finds the opcode (ADD) and which registers to use.",tech:"rs1_addr, rs2_addr extracted",on:["dec","regs","ctl"]},{stage:2,plain:"The two register values go to the ALU, which adds them. The flags record whether the result was zero, negative, or carried.",tech:"alu_op=ADD, flags_we=1",on:["regs","alu","flags","ctl"]},{stage:4,plain:"The sum is written back into R3. The instruction is now finished.",tech:"wb_sel=2'b00, rf_we=1, retire=1",on:["alu","regs","ctl"]}]},{label:"Put a number in a register",code:"LDI R0, 0xA5",cycles:"4 cycles",steps:[Nl,{stage:1,plain:"The number to load (0xA5) is part of the instruction itself, so the decoder just pulls it out.",tech:"imm8[7:0] extracted",on:["dec","ctl"]},{stage:2,plain:"Nothing to calculate. Flags stay as they were.",tech:"flags_we=0",on:["dec","ctl"]},{stage:4,plain:"The number is copied into R0.",tech:"wb_sel=2'b10, rf_we=1, retire=1",on:["dec","regs","ctl"]}]},{label:"Read from memory",code:"LD R3, [R1]",cycles:"5 cycles",steps:[Nl,{stage:1,plain:"R1 holds the memory address we want, so the decoder picks out R1.",tech:"rs1_addr = pointer Rp",on:["dec","regs","ctl"]},{stage:2,plain:"The address in R1 is sent to data memory.",tech:"dmem_addr ← R[rs1]",on:["regs","ctl"]},{stage:3,plain:"Data memory returns the byte stored at that address.",tech:"mem_we=0, dmem_rdata valid",on:["dmem","ctl"]},{stage:4,plain:"The byte is written into R3.",tech:"wb_sel=2'b01, rf_we=1, retire=1",on:["dmem","regs","ctl"]}]},{label:"Write to memory",code:"ST [R1], R2",cycles:"4 cycles",steps:[Nl,{stage:1,plain:"The decoder finds the address register (R1) and the data register (R2).",tech:"rs1_addr (Rp), rd_addr carries the data register",on:["dec","regs","ctl"]},{stage:2,plain:"Both register values are read out and made ready.",tech:"addr ← R[rs1], wdata ← R[rd]",on:["regs","ctl"]},{stage:3,plain:"Data memory stores the byte. No register changes, so the instruction finishes here.",tech:"mem_we=1, retire=1",on:["dmem","ctl"]}]},{label:"Compare and branch",code:"BEQ DONE",cycles:"3 cycles",steps:[Nl,{stage:1,plain:"The decoder reads the condition (“equal?”) and the target address.",tech:"cond[2:0], addr9[8:0]",on:["dec","flags","ctl"]},{stage:2,plain:"If the zero flag is set, the program counter jumps to the target; otherwise it carries on.",tech:"pc_load = cond_met, retire=1 (targets are absolute 9-bit addresses)",on:["flags","pc","ctl"]}]},{label:"Send a value to the accelerator",code:"OUT 0x51, R2",cycles:"4 cycles + waiting",steps:[Nl,{stage:1,plain:"The decoder sees an I/O write to port 0x51 with R2 as the source.",tech:"port=0x51, io_dir=OUT",on:["dec","regs","ctl"]},{stage:2,plain:"The value in R2 is placed on the bus.",tech:"io_wdata ← R[rd]",on:["regs","ctl"]},{stage:3,plain:"The bus delivers it to the accelerator, which multiplies it with the number stored earlier and adds to its running total. The CPU waits until the chip says “ready”.",tech:"io_wr=1, wait io_ready, mac_start=1, retire=1",on:["bus","nn","mac","ctl"]}]},{label:"Read from the accelerator",code:"IN R4, 0x59",cycles:"5 cycles + waiting",steps:[Nl,{stage:1,plain:"The decoder sees an I/O read from port 0x59 (the activated result).",tech:"port=0x59, io_dir=IN",on:["dec","ctl"]},{stage:2,plain:"The CPU prepares the read request.",tech:"prepare io_rd",on:["ctl"]},{stage:3,plain:"The accelerator rescales its total to one byte and looks it up in the activation table. If the multiplier is still busy, the CPU waits.",tech:"io_rd=1, stall while nn_busy, latch io_rdata",on:["bus","nn","act","lut","ctl"]},{stage:4,plain:"The result is written into R4.",tech:"wb_sel=2'b11, rf_we=1, retire=1",on:["regs","ctl"]}]},{label:"Stop",code:"HLT",cycles:"2 cycles, then stays stopped",steps:[Nl,{stage:1,plain:"The instruction is recognised and counted as finished right away.",tech:"retire=1, next_state=HALTED_S",on:["dec","ctl"]},{stage:5,plain:"The processor stays stopped until reset.",tech:"halted=1 (sticky)",on:["ctl"]}]}];function Qh(){const[o,E]=Bt.useState(5),[b,f]=Bt.useState(3),[x,D]=Bt.useState("nn"),[C,X]=Bt.useState(!1),S=Jd[o],y=S.steps[Math.min(b,S.steps.length-1)];Bt.useEffect(()=>{if(!C)return;const O=setInterval(()=>f(Y=>(Y+1)%S.steps.length),1700);return()=>clearInterval(O)},[C,S]);const H=({id:O,className:Y=""})=>{const U=y.on.includes(O);return s.jsx("button",{onClick:()=>D(O),"aria-pressed":x===O,className:`rounded-lg border px-3 py-2 text-left transition ${Y} ${U?"border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200":"border-slate-200 bg-white hover:border-slate-300"} ${x===O?"outline outline-2 outline-offset-2 outline-slate-900":""}`,children:s.jsxs("div",{className:"flex items-center justify-between gap-2 text-sm font-semibold text-slate-900",children:[On[O].name,U&&s.jsx("span",{className:"h-2 w-2 animate-pulse rounded-full bg-indigo-600"})]})})},_=({title:O,sub:Y,tint:U,children:K})=>s.jsxs("div",{className:`rounded-2xl border p-4 ${U}`,children:[s.jsx("div",{className:"text-xs font-bold uppercase tracking-wide text-slate-700",children:O}),s.jsx("div",{className:"mb-3 text-xs text-slate-500",children:Y}),s.jsx("div",{className:"grid gap-2",children:K})]});return s.jsxs("div",{className:"rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6",children:[s.jsxs("div",{className:"flex flex-wrap items-end gap-3",children:[s.jsxs("label",{className:"text-sm font-medium text-slate-700",children:["Pick an instruction",s.jsx("select",{value:o,onChange:O=>{E(Number(O.target.value)),f(0)},className:"mt-1 block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm",children:Jd.map((O,Y)=>s.jsxs("option",{value:Y,children:[O.label," — ",O.code]},O.code))})]}),s.jsxs("button",{className:"btn btn-dark",onClick:()=>{X(!1),f(O=>(O+1)%S.steps.length)},children:["Next step (",Math.min(b,S.steps.length-1)+1,"/",S.steps.length,")"]}),s.jsx("button",{className:"btn",onClick:()=>X(O=>!O),children:C?"Pause":"Auto-play"}),s.jsxs("span",{className:"ml-auto text-sm text-slate-500",children:[s.jsx(Ht,{children:S.code})," · ",S.cycles]})]}),s.jsx("ol",{className:"mt-5 flex flex-wrap gap-1.5",children:Kd.map((O,Y)=>{const U=S.steps.findIndex(B=>B.stage===Y),K=U>=0,I=y.stage===Y;return s.jsx("li",{children:s.jsxs("button",{disabled:!K,onClick:()=>{X(!1),f(U)},title:O.d,className:`rounded-full px-3 py-1 text-xs font-medium ${I?"bg-indigo-600 text-white":K?"border border-slate-300 bg-white text-slate-700 hover:border-indigo-400":"bg-slate-100 text-slate-400"}`,children:[Y+1,". ",O.n]})},O.n)})}),s.jsxs("div",{className:"mt-3 rounded-xl bg-slate-900 p-4 text-slate-100",children:[s.jsxs("div",{className:"text-sm leading-relaxed",children:[s.jsxs("strong",{className:"text-white",children:[Kd[y.stage].n,":"]})," ",y.plain]}),s.jsxs("div",{className:"mt-2 font-mono text-[11px] text-emerald-300",children:[Xh[y.stage]," · ",y.tech]})]}),s.jsxs("div",{className:"mt-5 grid gap-4 lg:grid-cols-12",children:[s.jsxs("div",{className:"grid gap-4 lg:col-span-8 lg:grid-cols-2",children:[s.jsxs(_,{title:"1 · Find & understand",sub:"Which instruction is next, and what does it say?",tint:"border-sky-200 bg-sky-50/50",children:[s.jsx(H,{id:"pc"}),s.jsx(H,{id:"imem"}),s.jsx(H,{id:"dec"})]}),s.jsxs(_,{title:"2 · Think & remember",sub:"Do the work and keep the results.",tint:"border-slate-200 bg-slate-50",children:[s.jsx(H,{id:"ctl"}),s.jsx(H,{id:"regs"}),s.jsx(H,{id:"alu"}),s.jsx(H,{id:"flags"}),s.jsx(H,{id:"dmem"})]})]}),s.jsx("div",{className:"lg:col-span-4",children:s.jsxs(_,{title:"3 · Talk to the world",sub:"I/O bus, then the add-on accelerator.",tint:"border-indigo-200 bg-indigo-50/40",children:[s.jsx(H,{id:"bus"}),s.jsxs("div",{className:"grid gap-2 rounded-xl border border-dashed border-indigo-300 p-2",children:[s.jsx("div",{className:"px-1 text-[11px] font-semibold uppercase tracking-wide text-indigo-700",children:"int8 accelerator · ports 0x50–0x5F"}),s.jsx(H,{id:"nn"}),s.jsx(H,{id:"mac"}),s.jsx(H,{id:"act"}),s.jsx(H,{id:"lut"})]})]})})]}),s.jsxs("div",{className:"mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4",children:[s.jsxs("div",{className:"flex flex-wrap items-center justify-between gap-2",children:[s.jsx("div",{className:"font-semibold text-slate-900",children:On[x].name}),s.jsxs("code",{className:"font-mono text-xs text-slate-500",children:["rtl/",On[x].file]})]}),s.jsx("p",{className:"mt-1 text-slate-700",children:On[x].plain}),s.jsxs("p",{className:"mt-1 text-sm text-slate-500",children:[s.jsx("span",{className:"font-medium text-slate-600",children:"Technical: "}),On[x].tech]})]})]})}const kd=[{label:"Typical Setosa",cm:[5.1,3.5,1.4,.2]},{label:"Typical Versicolor",cm:[5.9,2.8,4.3,1.3]},{label:"Typical Virginica",cm:[6.7,3.1,5.6,2.4]}],Zh=["bg-sky-500","bg-emerald-500","bg-fuchsia-500"];function Vh(){const[o,E]=Bt.useState(()=>Vd(kd[1].cm)),[b,f]=Bt.useState(null),x=Bt.useMemo(()=>Zd(o),[o]),D=Bt.useMemo(()=>Es.map(S=>Zd(S.x).predicted===S.y),[]),C=S=>(Dn[S].min+o[S]/127*(Dn[S].max-Dn[S].min)).toFixed(1),X=Math.max(...x.logits)-Math.min(...x.logits);return s.jsxs("div",{className:"grid gap-5 lg:grid-cols-5",children:[s.jsxs("div",{className:"card lg:col-span-2",children:[s.jsx("div",{className:"label",children:"1 · Describe a flower"}),s.jsx("div",{className:"mt-3 space-y-3",children:Dn.map((S,y)=>s.jsxs("label",{className:"block text-sm",children:[s.jsxs("div",{className:"flex justify-between text-slate-700",children:[s.jsx("span",{children:S.name}),s.jsxs("span",{className:"font-mono",children:[C(y)," cm ",s.jsxs("span",{className:"text-slate-400",children:["→ ",o[y]]})]})]}),s.jsx("input",{type:"range",min:0,max:127,value:o[y],className:"w-full accent-indigo-600",onChange:H=>{const _=[...o];_[y]=Number(H.target.value),E(_),f(null)}})]},S.name))}),s.jsx("div",{className:"mt-3 flex flex-wrap gap-2",children:kd.map(S=>s.jsx("button",{className:"chip",onClick:()=>{E(Vd(S.cm)),f(null)},children:S.label},S.label))}),s.jsxs("div",{className:"mt-5 border-t border-slate-100 pt-4",children:[s.jsx("div",{className:"label",children:"Or load one of the 23 real test flowers"}),s.jsx("div",{className:"mt-2 flex flex-wrap gap-1.5",children:Es.map((S,y)=>s.jsx("button",{title:`Test flower ${y+1}: really ${Wu[S.y]} — network ${D[y]?"got it right":"got it wrong"}`,onClick:()=>{E(S.x),f(y)},className:`h-6 w-6 rounded-md text-[10px] font-semibold text-white ${D[y]?"bg-emerald-500":"bg-rose-500"} ${b===y?"ring-2 ring-slate-900 ring-offset-1":""}`,children:y+1},y))}),s.jsxs("p",{className:"mt-2 text-xs text-slate-500",children:["Green = classified correctly (22), red = wrong (1). ",b!==null&&s.jsxs(s.Fragment,{children:["Flower ",b+1," is really ",s.jsx("strong",{children:Wu[Es[b].y]}),"."]})]})]})]}),s.jsxs("div",{className:"card lg:col-span-3",children:[s.jsx("div",{className:"label",children:"2 · Six “detectors” react (hidden layer)"}),s.jsx("div",{className:"mt-2 grid grid-cols-6 gap-2",children:x.hidden.map((S,y)=>s.jsxs("div",{className:"text-center",children:[s.jsx("div",{className:"flex h-20 items-end rounded-md bg-slate-100",children:s.jsx("div",{className:"w-full rounded-md bg-indigo-500 transition-all",style:{height:`${S/127*100}%`}})}),s.jsx("div",{className:"mt-1 font-mono text-[11px] text-slate-600",children:S===0?"off":S})]},y))}),s.jsx("p",{className:"mt-1 text-xs text-slate-500",children:"A detector that outputs 0 is “off”. Any multiply involving a 0 is skipped by the hardware."}),s.jsx("div",{className:"label mt-5",children:"3 · Three scores, highest wins (output layer)"}),s.jsx("div",{className:"mt-2 space-y-2",children:Wu.map((S,y)=>s.jsxs("div",{className:"flex items-center gap-3 text-sm",children:[s.jsx("div",{className:`w-24 ${x.predicted===y?"font-bold text-slate-900":"text-slate-500"}`,children:S}),s.jsx("div",{className:"h-4 flex-1 rounded bg-slate-100",children:s.jsx("div",{className:`h-4 rounded transition-all ${x.predicted===y?Zh[y]:"bg-slate-300"}`,style:{width:`${x.logits[y]/255*100}%`}})}),s.jsx("div",{className:"w-8 text-right font-mono text-xs text-slate-500",children:x.logits[y]})]},S))}),s.jsxs("div",{className:"mt-4 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl bg-slate-900 px-4 py-3 text-slate-100",children:[s.jsxs("div",{className:"text-lg font-semibold",children:["Prediction: ",s.jsx("span",{className:"text-emerald-300",children:Wu[x.predicted]}),X<12&&s.jsx("span",{className:"ml-2 text-xs font-normal text-amber-300",children:"close call"})]}),s.jsxs("div",{className:"font-mono text-xs text-slate-400",children:[x.macs," multiplies done · ",x.skipped," skipped (zero)"]})]})]})]})}const $d=[{id:"b0",name:"Software, repeated addition",plain:"No helper chip. 6 × 7 is done as 7 additions.",cycles:43155,range:"41,637–44,678",hw:!1},{id:"b1",name:"Software, shift-and-add",plain:"No helper chip. A smarter software multiply, but each step costs more instructions.",cycles:24427,range:"24,135–24,654",hw:!1},{id:"a0",name:"Accelerator, looped",plain:"Chip multiplies; software still does the rescale and ReLU.",cycles:2172,range:"2,171–2,175",hw:!0},{id:"a2",name:"Accelerator + hardware tables",plain:"Chip multiplies, rescales and applies the activation table.",cycles:2071,range:"2,071",hw:!0},{id:"a4",name:"Accelerator, unrolled",plain:"Same, but the loop is removed: each weight is written straight into the program.",cycles:1087,range:"1,087",hw:!0}];function Kh(){const[o,E]=Bt.useState(!1),[b,f]=Bt.useState("b0"),x=$d.find(C=>C.id===b).cycles,D=C=>o?(Math.log10(C)-2.5)/(Math.log10(45e3)-2.5)*100:C/45e3*100;return s.jsxs("div",{className:"card",children:[s.jsxs("div",{className:"flex flex-wrap items-center gap-2",children:[s.jsx("span",{className:"text-sm text-slate-600",children:"Compare against"}),["b0","b1"].map(C=>s.jsx("button",{onClick:()=>f(C),className:`chip ${b===C?"chip-on":""}`,children:C==="b0"?"repeated addition":"shift-and-add"},C)),s.jsxs("button",{onClick:()=>E(C=>!C),className:"chip ml-auto",children:[o?"Log scale":"Linear scale"," · switch"]})]}),s.jsx("div",{className:"mt-4 space-y-4",children:$d.map(C=>s.jsxs("div",{children:[s.jsxs("div",{className:"flex flex-wrap items-baseline justify-between gap-2 text-sm",children:[s.jsxs("div",{children:[s.jsx("span",{className:"font-mono text-xs text-slate-400",children:C.id})," ",s.jsx("span",{className:"font-semibold text-slate-900",children:C.name})]}),s.jsxs("div",{className:"font-mono text-slate-700",children:[C.cycles.toLocaleString()," cycles ",s.jsxs("span",{className:"ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs",children:[(x/C.cycles).toFixed(1),"×"]})]})]}),s.jsx("div",{className:"mt-1 h-5 rounded bg-slate-100",children:s.jsx("div",{className:`h-5 rounded transition-all ${C.hw?"bg-indigo-500":"bg-slate-400"}`,style:{width:`${Math.max(1.5,D(C.cycles))}%`}})}),s.jsxs("div",{className:"mt-0.5 text-xs text-slate-500",children:[C.plain," ",s.jsxs("span",{className:"text-slate-400",children:["(range over 23 flowers: ",C.range,")"]})]})]},C.id))})]})}/* ===================================================================
+   DSD-8 explainer add-on: layman sections, diagrams and animations.
+   Every number below is taken from README.md, STUDENT_GUIDE.md and
+   PROJECT_DOCUMENTATION_AND_REPORT.md (v1.0 + CNN extension).
+   =================================================================== */
+const xa_try=(f,el)=>{try{f(el)}catch(e){console.error("DSD-8 add-on:",e)}};
+function RawH(p){
+  const r=Bt.useRef(null);
+  Bt.useEffect(()=>{const el=r.current;if(!el||el.dataset.xi)return;el.dataset.xi="1";if(p.init)xa_try(p.init,el)},[]);
+  return s.jsx("div",{ref:r,className:p.className||"",dangerouslySetInnerHTML:{__html:p.html}})
+}
+const xa_hx=(v,w=2)=>"0x"+((v>>>0)&((1<<(4*w))-1)).toString(16).toUpperCase().padStart(w,"0");
+const xa_$=(el,q)=>el.querySelector(q);
+const xa_$$=(el,q)=>[...el.querySelectorAll(q)];
+
+/* ---------------- hero picture ---------------- */
+const XA_HERO_SVG=`
+<svg class="xh-svg" viewBox="0 0 560 400" role="img" aria-label="Diagram: four flower measurements or an 8 by 8 picture go into the DSD-8 chip, which contains the CPU and the accelerator, and the answer appears on the LEDs">
+ <defs>
+  <linearGradient id="xhChip" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#312e81"/><stop offset="1" stop-color="#1e1b4b"/></linearGradient>
+  <linearGradient id="xhPet" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c4b5fd"/><stop offset="1" stop-color="#7c3aed"/></linearGradient>
+  <filter id="xhGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+ </defs>
+ <!-- wires -->
+ <path id="xhW1" class="xh-wire" d="M118 110 C170 110 170 170 214 170"/>
+ <path id="xhW2" class="xh-wire" d="M118 300 C170 300 170 230 214 230"/>
+ <path id="xhW3" class="xh-wire" d="M392 200 C430 200 430 200 462 200"/>
+ <circle r="5" class="xh-dot"><animateMotion dur="2.6s" repeatCount="indefinite"><mpath href="#xhW1"/></animateMotion></circle>
+ <circle r="5" class="xh-dot g"><animateMotion dur="2.6s" begin="1.3s" repeatCount="indefinite"><mpath href="#xhW2"/></animateMotion></circle>
+ <circle r="5" class="xh-dot y"><animateMotion dur="1.6s" repeatCount="indefinite"><mpath href="#xhW3"/></animateMotion></circle>
+ <!-- flower -->
+ <g transform="translate(62 104)">
+  <path d="M0 70 C0 40 0 20 0 6" stroke="#34d399" stroke-width="4" fill="none"/>
+  <path d="M0 58 C-18 46 -26 40 -30 28 C-14 32 -6 40 0 52" fill="#10b981"/>
+  <g fill="url(#xhPet)">
+   <path d="M0 0 C-10 -22 -6 -44 0 -52 C6 -44 10 -22 0 0Z"/>
+   <path d="M0 0 C-22 -6 -44 -2 -52 6 C-40 14 -18 12 0 0Z"/>
+   <path d="M0 0 C22 -6 44 -2 52 6 C40 14 18 12 0 0Z"/>
+   <path d="M0 0 C-14 14 -16 34 -10 42 C0 32 4 16 0 0Z" opacity=".8"/>
+   <path d="M0 0 C14 14 16 34 10 42 C0 32 -4 16 0 0Z" opacity=".8"/>
+  </g>
+  <circle r="5" fill="#fde68a"/>
+ </g>
+ <text x="62" y="196" class="xh-cap" text-anchor="middle">4 measurements</text>
+ <text x="62" y="212" class="xh-sub" text-anchor="middle">5.9 · 2.8 · 4.3 · 1.3 cm</text>
+ <!-- 8x8 digit -->
+ <g transform="translate(22 252)" class="xh-pix">${(()=>{const d=["00111100","01100110","00000110","00001100","00011000","00110000","01111110","00000000"];let o="";d.forEach((r,i)=>[...r].forEach((c,j)=>{o+=`<rect x="${j*10}" y="${i*10}" width="9" height="9" rx="1.5" class="${c==="1"?"on":""}"/>`}));return o})()}</g>
+ <text x="62" y="352" class="xh-cap" text-anchor="middle">or an 8×8 picture</text>
+ <text x="62" y="368" class="xh-sub" text-anchor="middle">64 pixels, values 0–127</text>
+ <!-- chip -->
+ <g transform="translate(214 70)">
+  ${(()=>{let o="";for(let i=0;i<9;i++){o+=`<rect x="${14+i*18}" y="-12" width="6" height="12" class="xh-pin"/><rect x="${14+i*18}" y="260" width="6" height="12" class="xh-pin"/>`}return o})()}
+  <rect width="178" height="260" rx="16" fill="url(#xhChip)" stroke="#6366f1" stroke-width="2"/>
+  <text x="89" y="28" class="xh-chipt" text-anchor="middle">DSD-8</text>
+  <text x="89" y="44" class="xh-sub" text-anchor="middle" fill="#a5b4fc">our own 8-bit chip</text>
+  <rect x="16" y="58" width="146" height="78" rx="10" class="xh-blk"/>
+  <text x="89" y="82" class="xh-bt" text-anchor="middle">CPU</text>
+  <text x="89" y="100" class="xh-bs" text-anchor="middle">reads the program</text>
+  <text x="89" y="116" class="xh-bs" text-anchor="middle">add · compare · move</text>
+  <path d="M89 136 V156" stroke="#fbbf24" stroke-width="2" stroke-dasharray="4 3"/>
+  <text x="96" y="150" class="xh-bs" fill="#fbbf24">I/O bus</text>
+  <rect x="16" y="158" width="146" height="84" rx="10" class="xh-blk acc"/>
+  <text x="89" y="182" class="xh-bt" text-anchor="middle">Accelerator</text>
+  <text x="89" y="200" class="xh-bs" text-anchor="middle">multiply + add in hardware</text>
+  <text x="89" y="216" class="xh-bs" text-anchor="middle">skip zeros · tables</text>
+  <text x="89" y="232" class="xh-bs" text-anchor="middle" fill="#6ee7b7">ports 0x50–0x5F</text>
+ </g>
+ <!-- LEDs -->
+ <g transform="translate(470 120)">
+  <rect x="-14" y="-14" width="92" height="178" rx="12" class="xh-board"/>
+  ${[0,1,2].map(i=>`<circle cx="32" cy="${14+i*54}" r="12" class="xh-led ${i===1?"on":""}" ${i===1?'filter="url(#xhGlow)"':""}/><text x="32" y="${40+i*54}" class="xh-sub" text-anchor="middle">${["Setosa","Versicolor","Virginica"][i]}</text>`).join("")}
+ </g>
+ <text x="502" y="316" class="xh-cap" text-anchor="middle">answer on LEDs</text>
+ <text x="502" y="332" class="xh-sub" text-anchor="middle">class 0, 1, 2 (or 0–3)</text>
+</svg>`;
+function XHero(){
+  return s.jsxs("figure",{className:"xh-fig",children:[
+    s.jsx("div",{className:"xh-card",dangerouslySetInnerHTML:{__html:XA_HERO_SVG}}),
+    s.jsx("figcaption",{className:"xh-figcap",children:"The idea in one picture: numbers about a flower (or a tiny picture) go in, our own processor and its helper chip do the maths, and the answer lights an LED. Everything runs in a Verilog simulation of the chip."})
+  ]})
+}
+function xa_global(){
+  if(window.__xaG)return;window.__xaG=1;
+  const nav=document.querySelector("nav");if(!nav)return;
+  nav.classList.add("xa-nav");
+  const bar=document.createElement("div");bar.className="xa-prog";nav.appendChild(bar);
+  const links=[...nav.querySelectorAll('a[href^="#"]')];
+  const secs=links.map(a=>document.getElementById(a.getAttribute("href").slice(1))).filter(Boolean);
+  let raf=0;
+  const upd=()=>{raf=0;const h=document.documentElement;const p=h.scrollTop/(h.scrollHeight-h.clientHeight||1);bar.style.transform="scaleX("+Math.min(1,Math.max(0,p))+")";
+    let cur=null;const y=h.scrollTop+90;secs.forEach(sc=>{if(sc.offsetTop<=y)cur=sc.id});
+    links.forEach(a=>{const on=a.getAttribute("href")==="#"+cur&&cur!=="top";a.classList.toggle("xa-on",on);if(on&&a.scrollIntoView&&a.dataset.lastOn!=="1"){const box=a.parentElement;if(box&&box.scrollWidth>box.clientWidth){box.scrollTo({left:a.offsetLeft-box.clientWidth/3,behavior:"smooth"})}}a.dataset.lastOn=on?"1":""})};
+  window.addEventListener("scroll",()=>{if(!raf)raf=requestAnimationFrame(upd)},{passive:true});
+  window.addEventListener("resize",upd);setTimeout(upd,200)
+}
+function XCta(){
+  Bt.useEffect(()=>{xa_try(xa_global)},[]);
+  return s.jsxs("div",{className:"xh-cta",children:[
+    s.jsx("a",{href:"#overview",className:"xh-btn pri",children:"▶ Start reading"}),
+    s.jsx("a",{href:"#try",className:"xh-btn",children:"Run a program in the browser"})
+  ]})
+}
+
+/* ---------------- 1. big picture: the office analogy ---------------- */
+const XA_STORY=`
+<div class="xs-wrap">
+ <div class="x-scroll"><svg class="x-svg xs-svg" viewBox="0 0 1100 470" role="img" aria-label="Office analogy diagram of the DSD-8 system">
+  <defs>
+   <marker id="xsA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#94a3b8"/></marker>
+  </defs>
+  <!-- zones -->
+  <rect x="10" y="10" width="250" height="330" rx="18" class="xs-zone z1"/>
+  <text x="30" y="40" class="xs-zt">1 · THE RECIPE</text>
+  <rect x="280" y="10" width="420" height="330" rx="18" class="xs-zone z2"/>
+  <text x="300" y="40" class="xs-zt">2 · THE CLERK'S DESK (the CPU)</text>
+  <rect x="720" y="10" width="370" height="330" rx="18" class="xs-zone z3"/>
+  <text x="740" y="40" class="xs-zt">3 · THE OUTSIDE WORLD</text>
+  <!-- recipe card -->
+  <g transform="translate(40 60)">
+   <rect width="190" height="220" rx="10" class="xs-paper"/>
+   ${[0,1,2,3,4,5,6,7,8].map(i=>`<text x="34" y="${28+i*21}" class="xs-code">${["LDI  R1, 13","LDI  R2, 7","LDI  R3, 0","LDI  R4, 1","CMP  R2, R5","BEQ  DONE","ADD  R3, R3, R1","SUB  R2, R2, R4","OUT  0x02, R3"][i]}</text><text x="12" y="${28+i*21}" class="xs-ln">${i}</text>`).join("")}
+   <rect x="4" y="${15+6*21}" width="182" height="18" rx="4" class="xs-hl"><animate attributeName="y" values="15;36;57;78;99;120;141;162;183;15" dur="9s" repeatCount="indefinite" calcMode="discrete"/></rect>
+  </g>
+  <text x="135" y="306" class="xs-cap" text-anchor="middle">Program memory: 512 lines</text>
+  <text x="135" y="324" class="xs-sub" text-anchor="middle">each line = one 16-bit instruction</text>
+  <!-- clerk desk -->
+  <g transform="translate(300 60)">
+   <rect width="120" height="64" rx="12" class="xs-box b1"/><text x="60" y="28" class="xs-bt" text-anchor="middle">Line pointer</text><text x="60" y="46" class="xs-bs" text-anchor="middle">PC: which line now</text>
+   <rect x="0" y="80" width="120" height="64" rx="12" class="xs-box b1"/><text x="60" y="108" class="xs-bt" text-anchor="middle">Reader</text><text x="60" y="126" class="xs-bs" text-anchor="middle">decoder</text>
+   <rect x="0" y="160" width="120" height="64" rx="12" class="xs-box b5"/><text x="60" y="188" class="xs-bt" text-anchor="middle">The clerk</text><text x="60" y="206" class="xs-bs" text-anchor="middle">control unit (6 steps)</text>
+   <!-- trays -->
+   <g transform="translate(140 0)">
+    <rect width="250" height="64" rx="12" class="xs-box b2"/>
+    <text x="12" y="20" class="xs-bt">8 trays on the desk</text>
+    ${[0,1,2,3,4,5,6,7].map(i=>`<rect x="${12+i*29}" y="28" width="25" height="26" rx="5" class="xs-tray"/><text x="${24.5+i*29}" y="46" class="xs-tt" text-anchor="middle">R${i}</text>`).join("")}
+    <rect y="80" width="120" height="64" rx="12" class="xs-box b2"/><text x="60" y="104" class="xs-bt" text-anchor="middle">Calculator</text><text x="60" y="122" class="xs-bs" text-anchor="middle">ALU: + − AND OR</text><text x="60" y="136" class="xs-bs" text-anchor="middle">shift · compare</text>
+    <rect x="130" y="80" width="120" height="64" rx="12" class="xs-box b2"/><text x="190" y="104" class="xs-bt" text-anchor="middle">4 sticky notes</text><text x="190" y="124" class="xs-bs" text-anchor="middle">flags Z N C V</text>
+    <rect y="160" width="250" height="64" rx="12" class="xs-box b2"/>
+    <text x="12" y="182" class="xs-bt">Filing cabinet</text><text x="12" y="200" class="xs-bs">data memory:</text><text x="12" y="214" class="xs-bs">256 drawers × 1 byte</text>
+    ${[0,1,2,3].map(i=>`<rect x="${168+i*19}" y="172" width="15" height="40" rx="3" class="xs-drw"/><circle cx="${175.5+i*19}" cy="192" r="2" fill="#94a3b8"/>`).join("")}
+   </g>
+  </g>
+  <!-- outside -->
+  <g transform="translate(740 60)">
+   <rect width="110" height="224" rx="12" class="xs-box b3"/>
+   <text x="55" y="26" class="xs-bt" text-anchor="middle">Service</text><text x="55" y="42" class="xs-bt" text-anchor="middle">window</text>
+   <text x="55" y="64" class="xs-bs" text-anchor="middle">I/O bus</text>
+   <text x="55" y="96" class="xs-bs" text-anchor="middle">"request"</text>
+   <text x="55" y="112" class="xs-bs" text-anchor="middle">→ wait for</text>
+   <text x="55" y="128" class="xs-bs" text-anchor="middle">"ready" bell</text>
+   <circle cx="55" cy="160" r="14" class="xs-bell"><animate attributeName="r" values="12;15;12" dur="1.4s" repeatCount="indefinite"/></circle>
+   <text x="55" y="200" class="xs-bs" text-anchor="middle">ports 0x00–0xFF</text>
+   <g transform="translate(130 0)">
+    <rect width="200" height="112" rx="12" class="xs-box b4"/>
+    <text x="14" y="24" class="xs-bt">Multiply specialist</text>
+    <text x="14" y="42" class="xs-bs">accelerator, ports 0x50–0x5F</text>
+    <text x="14" y="62" class="xs-bs">does "total += a × w" fast,</text>
+    <text x="14" y="78" class="xs-bs">skips anything × 0</text>
+    <g transform="translate(160 70)"><rect x="-12" y="0" width="24" height="20" rx="4" fill="#059669"/><path d="M-7 0 V-7 A7 7 0 0 1 7 -7 V0" stroke="#059669" stroke-width="3" fill="none"/></g>
+    <text x="14" y="100" class="xs-bs" fill="#047857">door locked until key 0xA5</text>
+    <rect y="128" width="200" height="96" rx="12" class="xs-box b3"/>
+    <text x="14" y="152" class="xs-bt">Notice board</text>
+    <text x="14" y="170" class="xs-bs">8 LEDs (port 0x02), switches,</text>
+    <text x="14" y="186" class="xs-bs">buttons, 7-segment display</text>
+    ${[0,1,2,3,4,5,6,7].map(i=>`<circle cx="${22+i*22}" cy="206" r="7" class="xs-led ${i===7?"on":""}"/>`).join("")}
+   </g>
+  </g>
+  <!-- flow arrows -->
+  <path d="M230 160 H296" class="xs-arr" marker-end="url(#xsA)"/>
+  <path d="M690 252 H736" class="xs-arr" marker-end="url(#xsA)"/>
+  <path d="M850 116 H866" class="xs-arr" marker-end="url(#xsA)"/>
+  <!-- examiner -->
+  <rect x="10" y="356" width="1080" height="104" rx="18" class="xs-zone z4"/>
+  <text x="30" y="386" class="xs-zt">4 · THE EXAMINER WITH AN ANSWER KEY (how we prove it works)</text>
+  <g transform="translate(40 398)">
+   <rect width="210" height="46" rx="10" class="xs-box b2"/><text x="105" y="20" class="xs-bt" text-anchor="middle">Python "golden" model</text><text x="105" y="36" class="xs-bs" text-anchor="middle">what SHOULD happen</text>
+   <rect x="300" width="210" height="46" rx="10" class="xs-box b1"/><text x="405" y="20" class="xs-bt" text-anchor="middle">Our Verilog chip</text><text x="405" y="36" class="xs-bs" text-anchor="middle">what DOES happen</text>
+   <path d="M210 23 H300" class="xs-arr dash"/><text x="255" y="16" class="xs-bs" text-anchor="middle">same program</text>
+   <path d="M510 23 H590" class="xs-arr" marker-end="url(#xsA)"/>
+   <rect x="596" width="200" height="46" rx="10" class="xs-box b4"/><text x="696" y="20" class="xs-bt" text-anchor="middle">Compare diaries</text><text x="696" y="36" class="xs-bs" text-anchor="middle">every finished instruction</text>
+   <path d="M796 23 H870" class="xs-arr" marker-end="url(#xsA)"/>
+   <rect x="876" width="164" height="46" rx="10" class="xs-ok"/><text x="958" y="29" class="xs-okt" text-anchor="middle">identical ✓</text>
+  </g>
+ </svg></div>
+ <div class="xs-twins">
+  ${[
+   ["📜","Recipe card","Program (instruction) memory","512 lines, 16 bits each. Written in assembly, turned into numbers by our assembler."],
+   ["👉","Finger on the line","Program counter (PC)","9 bits, so it can point at lines 0–511. Moves on after every instruction, or jumps."],
+   ["🧑‍💼","The clerk","Control unit","Does every instruction in small steps: fetch → decode → execute → memory/I-O → write back."],
+   ["🗂️","8 trays","Registers R0–R7","Each holds one byte (0–255). All arithmetic happens between trays."],
+   ["🧮","Calculator","ALU + flags Z N C V","Add, subtract, AND, OR, XOR, shift, compare. No multiply! Flags remember things like “result was zero”."],
+   ["🗄️","Filing cabinet","Data memory","256 drawers of one byte. Weights and results are stored here."],
+   ["🛎️","Service window","I/O bus (request/ready)","The CPU asks, then waits until the device rings “ready”. Nothing happens twice."],
+   ["⚡","Multiply specialist","int8 accelerator","Signed multiply-add, 24-bit running total, zero skipping, rescale and activation tables."],
+   ["💡","Notice board","LEDs, switches, 7-segment","The final answer (the class number) is written to the LEDs."],
+   ["🧑‍🏫","Examiner","Golden model + trace compare","An independent Python model must agree with the Verilog on every single instruction."]
+  ].map(([e,a,b,c])=>`<div class="xs-twin"><div class="xs-e">${e}</div><div><div class="xs-a">${a} <span>=</span> <b>${b}</b></div><p>${c}</p></div></div>`).join("")}
+ </div>
+</div>`;
+
+/* ---------------- 2. the full journey of one flower ---------------- */
+const XA_JOURNEY=`
+<div class="xj">
+ <div class="xj-track" role="tablist"></div>
+ <div class="xj-bar"><button class="btn btn-dark xj-play">▶ Play the journey</button><button class="btn xj-prev">← Back</button><button class="btn xj-next">Next →</button><span class="xj-count"></span></div>
+ <div class="xj-panel card">
+  <div class="xj-grid"><div class="xj-vis"></div><div class="xj-txt"></div></div>
+ </div>
+</div>`;
+function xa_journeyData(){
+  const cm=[5.9,2.8,4.3,1.3],xq=Vd(cm),R=Zd(xq),W=Yh;
+  const taps=[0,1,2,3].map(i=>({a:xq[i],w:W.w1[i][0]})).concat([{a:127,w:W.b1[0],bias:1}]);
+  let acc=0;taps.forEach(t=>{t.skip=t.a===0||t.w===0;t.p=t.a*t.w;if(!t.skip)acc=Fd(acc+t.p)});
+  const qb=Pu(acc,W.shift1)&255,h0=Iu[0][qb],q=qb>127?qb-256:qb;
+  return{cm,xq,R,taps,acc,q,h0}
+}
+const XA_JSTEPS=[
+ {t:"Measure",ic:"🌸",tag:"real world"},
+ {t:"Make bytes",ic:"📏",tag:"nn/quantize.py"},
+ {t:"Learn weights",ic:"🎓",tag:"nn/train.py (once, on a PC)"},
+ {t:"Write program",ic:"📝",tag:"gen_programs.py + dsd8asm.py"},
+ {t:"CPU runs it",ic:"🧠",tag:"rtl/dsd8_cpu.v"},
+ {t:"Helper multiplies",ic:"⚡",tag:"rtl/nn_accel.v"},
+ {t:"Pick a winner",ic:"🏆",tag:"argmax in software"},
+ {t:"LED + check",ic:"💡",tag:"LEDs + trace compare"}
+];
+function xa_jView(i,D){
+  const F=["Sepal length","Sepal width","Petal length","Petal width"],mins=[4.3,2,1,.1],maxs=[7.9,4.4,6.9,2.5];
+  const sp=["Setosa","Versicolor","Virginica"];
+  const bars=(vals,mx,lab,cls)=>`<div class="xj-bars">${vals.map((v,k)=>`<div class="xj-b"><span>${lab[k]}</span><div><i class="${cls||""}" style="width:${Math.max(2,v/mx*100)}%"></i></div><em>${v}</em></div>`).join("")}</div>`;
+  if(i===0)return[`<div class="xj-flower"><div class="xj-big">🌸</div><table class="xj-tab">${F.map((f,k)=>`<tr><td>${f}</td><td><b>${D.cm[k]} cm</b></td></tr>`).join("")}</table></div>`,
+   `<h3>Someone measures a flower</h3><p>The network never “sees” the flower. It only gets <b>four lengths</b>: the sepal and petal, each long and wide. This example is a typical <b>Iris versicolor</b>.</p><p class="xj-tech">The Iris dataset has 150 flowers of 3 species. 105 were used to train, 22 to validate and 23 to test.</p>`];
+  if(i===1)return[bars(D.xq,127,F,"ind"),
+   `<h3>Squeeze every number onto a 0–127 ruler</h3><p>DSD-8 only understands whole numbers that fit in one byte. So each length is placed on a ruler from the smallest to the largest flower in the dataset and turned into a number from 0 to 127.</p><div class="xj-formula">x<sub>q</sub> = round( (x − min) ÷ (max − min) × 127 )</div><p>Example: petal length ${D.cm[2]} cm → (${D.cm[2]} − ${mins[2]}) ÷ (${maxs[2]} − ${mins[2]}) × 127 ≈ <b>${D.xq[2]}</b>.</p><p class="xj-tech">Result for this flower: <code>${D.xq.join(", ")}</code>. This is called <b>quantization</b>.</p>`];
+  if(i===2)return[`<div class="xj-wgrid"><div class="xj-wcap">Layer-1 weights after rounding to int8</div>${Yh.w1.map(r=>`<div>${r.map(w=>`<b class="${w<0?"n":w===0?"z":"p"}">${w}</b>`).join("")}</div>`).join("")}<div class="xj-wcap">blue = positive, red = negative, grey = 0</div></div>`,
+   `<h3>Learn the “weights” (done once, on a normal PC)</h3><p>A Python program shows the network the 105 training flowers again and again (800 rounds) and adjusts its <b>weights</b>: the numbers that say how much each measurement matters to each detector.</p><p>Then every weight is rounded to a whole number between <b>−127 and 127</b> (that is “int8”). Rounding did not cost accuracy: both versions get <b>22 of 23</b> test flowers right.</p><p class="xj-tech">Files: <code>nn/train.py</code> → <code>nn/data/model_float.npz</code>; <code>nn/quantize.py</code> → <code>nn/data/weights_q.json</code>.</p>`];
+  if(i===3)return[`<pre class="xj-code"><span class="c">; one multiply-add, as the program writes it</span>
+LDI  R1, ${D.xq[0]}        <span class="c">; the measurement</span>
+OUT  0x50, R1      <span class="c">; give it to the helper (A)</span>
+LDI  R2, 0xDA      <span class="c">; weight −38 as a byte</span>
+OUT  0x51, R2      <span class="c">; weight (W) → multiply-add</span></pre><div class="xj-arrow">assembler ↓ dsd8asm.py</div><pre class="xj-code hex">1238   E350   14DA   E551</pre>`,
+   `<h3>Write the program and turn it into numbers</h3><p>A generator script writes a DSD-8 <b>assembly</b> program for this network. Our <b>assembler</b> then turns each line into one 16-bit number, the only language the chip understands.</p><p>Notice <code>0xDA</code>: the chip has no minus sign, so −38 is stored as its <b>two’s-complement</b> byte (256 − 38 = 218 = 0xDA).</p><p class="xj-tech">The programs must fit in 512 instructions. Largest: a4 = 303, b0 = 388, b1 = 434.</p>`];
+  if(i===4)return[`<div class="xj-fsm">${["FETCH","DECODE","EXECUTE","MEM / I-O","WRITE BACK"].map((x,k)=>`<div class="xj-st s${k}"><b>${k+1}</b>${x}</div>`).join('<i>→</i>')}</div><p class="xj-mini">An <code>OUT</code> uses steps 1 → 4 and waits at step 4 until the device says “ready”.</p>`,
+   `<h3>The processor follows the program, line by line</h3><p>For every instruction the control unit walks through a few small steps: <b>fetch</b> the line, <b>decode</b> it, <b>execute</b> it, talk to <b>memory or I/O</b> if needed, and <b>write back</b> the result. That takes 2 to 5 clock ticks.</p><p>When the line says <code>OUT 0x51, R2</code>, the CPU puts the byte on the <b>I/O bus</b> with the address 0x51, and the accelerator picks it up.</p><p class="xj-tech">Six states: FETCH, DECODE, EXECUTE, MEM_IO, WRITEBACK, HALTED_S. Exactly one “retire” per instruction.</p>`];
+  if(i===5){const t=D.taps;return[`<div class="xj-mac"><div class="xj-wcap">Hidden detector 1 for this flower</div>${t.map(x=>`<div class="xj-row ${x.skip?"sk":""}"><span>${x.bias?"bias 127":x.a}</span><span>×</span><span>${x.w}</span><span>=</span><span>${x.skip?"skipped (×0)":x.p}</span></div>`).join("")}<div class="xj-row tot"><span>total</span><span></span><span></span><span>=</span><span>${D.acc}</span></div><div class="xj-row tot"><span>÷ 256</span><span></span><span></span><span>=</span><span>${D.q}</span></div><div class="xj-row tot"><span>ReLU</span><span></span><span></span><span>=</span><span><b>${D.h0}</b></span></div></div>`,
+   `<h3>The helper chip does the multiplying</h3><p>Each hidden “detector” multiplies the 4 inputs by its 4 weights and adds a bias. The accelerator keeps a <b>running total</b> (24 bits wide, so it does not overflow).</p><p>The bias is treated as one more input that is always 127. Here the bias weight is 0, so the hardware <b>skips</b> that multiply.</p><p>Then the total is <b>shifted right</b> by 8 (÷256), clamped into −128…127 and passed through the <b>ReLU table</b>: negative → 0. ${D.h0===0?"This detector stays off for this flower.":"This detector is on for this flower."}</p><p class="xj-tech">Whole network: 6×5 + 3×7 = <b>51 multiply-adds</b> per flower.</p>`]}
+  if(i===6)return[`<div class="xj-wcap">Six detectors</div>${bars(D.R.hidden,127,["h1","h2","h3","h4","h5","h6"],"ind")}<div class="xj-wcap" style="margin-top:.8rem">Three scores (128 = neutral)</div>${bars(D.R.logits,255,sp,"grn")}`,
+   `<h3>Three scores, the biggest one wins</h3><p>The six detector values go through a second layer the same way and give <b>one score per species</b>. A score of 128 means “neutral”; bigger means more likely.</p><p>A tiny loop compares the scores and keeps the largest (on a tie, the lower class number wins). Here the winner is <b>${sp[D.R.predicted]}</b>.</p><p class="xj-tech">Scores are stored “offset-binary” (LUT bank 2: value + 128), so a plain unsigned compare finds the winner.</p>`];
+  return[`<div class="xj-ledbox"><div class="xj-leds">${[7,6,5,4,3,2,1,0].map(b=>`<i class="${(D.R.predicted>>b)&1?"on":""}"></i>`).join("")}</div><div class="xj-wcap">LEDs = ${D.R.predicted} = ${sp[D.R.predicted]}</div><div class="xj-pass">Python model trace ≡ Verilog trace ✓</div></div>`,
+   `<h3>The answer appears, and it is double-checked</h3><p>The program writes the class number (0, 1 or 2) to the <b>LED port 0x02</b>. Class 1 = Versicolor, which is correct for this flower.</p><p>In the test bench the same program also runs on the independent Python model. Every finished instruction must match exactly, and the LEDs must equal the reference answer.</p><p class="xj-tech">Done for 23 flowers × 5 program versions × 2 bus modes = 230 runs. All pass. Fastest version: 1,087 clock cycles.</p>`]
+}
+function xa_initJourney(el){
+  const D=xa_journeyData(),tr=xa_$(el,".xj-track"),vis=xa_$(el,".xj-vis"),txt=xa_$(el,".xj-txt"),cnt=xa_$(el,".xj-count"),pl=xa_$(el,".xj-play");
+  tr.innerHTML=XA_JSTEPS.map((s2,i)=>`<button class="xj-step" data-i="${i}" role="tab"><span class="xj-ic">${s2.ic}</span><b>${i+1}. ${s2.t}</b><small>${s2.tag}</small></button>`).join("");
+  let cur=0,tm=null;
+  const go=i=>{cur=(i+8)%8;const[v,t]=xa_jView(cur,D);vis.innerHTML=v;txt.innerHTML=t;cnt.textContent="Step "+(cur+1)+" of 8";
+    xa_$$(tr,".xj-step").forEach((b,k)=>{b.classList.toggle("on",k===cur);b.classList.toggle("done",k<cur)});
+    const p=xa_$(el,".xj-panel");p.classList.remove("xj-in");void p.offsetWidth;p.classList.add("xj-in")};
+  const stop=()=>{if(tm){clearInterval(tm);tm=null}pl.textContent="▶ Play the journey"};
+  tr.addEventListener("click",e=>{const b=e.target.closest(".xj-step");if(b){stop();go(+b.dataset.i)}});
+  xa_$(el,".xj-next").onclick=()=>{stop();go(cur+1)};xa_$(el,".xj-prev").onclick=()=>{stop();go(cur-1)};
+  pl.onclick=()=>{if(tm){stop();return}pl.textContent="⏸ Pause";go(cur===7?0:cur+1);tm=setInterval(()=>{if(cur>=7){stop();return}go(cur+1)},4200)};
+  go(0)
+}
+
+/* ---------------- 3. why a helper chip ---------------- */
+const XA_WHY=`
+<div class="xw-grid">
+ <div class="card">
+  <div class="label">Without help · 13 × 7 the long way</div>
+  <p class="xw-p">The CPU has no multiply instruction, so the program adds 13 seven times. Each addition needs a loop: compare, branch, add, subtract, jump.</p>
+  <div class="xw-stack"></div>
+  <div class="xw-total">total = <b class="xw-sum">0</b> <span class="xw-n">after 0 additions</span></div>
+  <p class="xw-foot">This demo program retires <b>51 instructions</b> to get 91. (Run it yourself in “Try it”.)</p>
+ </div>
+ <div class="card xw-hw">
+  <div class="label">With the accelerator · 3 × 4</div>
+  <p class="xw-p">The program unlocks the helper, writes 3 to port 0x50 and 4 to port 0x51. The hardware multiplies and adds in one pass through its 3-stage pipeline.</p>
+  <div class="xw-pipe"><div><b>3</b><span>A · port 0x50</span></div><i>×</i><div><b>4</b><span>W · port 0x51</span></div><i>→</i><div class="res"><b>12</b><span>total · 0x0C</span></div></div>
+  <p class="xw-foot">The whole demo, including unlocking and lighting the LEDs, is <b>11 instructions</b>.</p>
+  <button class="btn xw-replay">↻ Replay both</button>
+ </div>
+</div>
+<div class="xw-count">
+ <div><b>51</b><span>multiply-adds for one flower<br/>(4-6-3 network)</span></div>
+ <div><b>1,588</b><span>multiply-adds for one 8×8 image<br/>(1,440 convolution + 148 final layer)</span></div>
+ <div><b>0</b><span>multiply instructions in the<br/>DSD-8 instruction set</span></div>
+</div>
+<div class="card xw-race">
+ <div class="xw-rh"><div><div class="label">The race · same CPU, same input, same answer</div><p class="xw-p">Bars fill at the real speed ratio. Software uses the slowest honest method (repeated addition); the accelerator uses its fastest program.</p></div>
+  <div class="xw-tabs"><button class="chip chip-on" data-w="mlp">Iris flower</button><button class="chip" data-w="cnn">8×8 image (CNN)</button><button class="btn btn-dark xw-go">▶ Start race</button></div></div>
+ <div class="xw-lane"><span class="xw-ln">Software only <em class="xw-sw-id">b0</em></span><div class="xw-track"><i class="xw-fill sw"></i></div><span class="xw-val xw-sw-v">43,155 cycles</span></div>
+ <div class="xw-lane"><span class="xw-ln">With accelerator <em class="xw-hw-id">a4</em></span><div class="xw-track"><i class="xw-fill hw"></i></div><span class="xw-val xw-hw-v">1,087 cycles</span></div>
+ <div class="xw-msg">Press “Start race”.</div>
+</div>`;
+function xa_initWhy(el){
+  const st=xa_$(el,".xw-stack"),sum=xa_$(el,".xw-sum"),n=xa_$(el,".xw-n"),pipe=xa_$(el,".xw-pipe");let t1=null;
+  const run=()=>{clearInterval(t1);st.innerHTML="";sum.textContent="0";n.textContent="after 0 additions";pipe.classList.remove("go");void pipe.offsetWidth;pipe.classList.add("go");
+    let k=0;t1=setInterval(()=>{k++;const b=document.createElement("div");b.className="xw-blk";b.innerHTML="<b>+13</b><span>"+13*k+"</span>";st.appendChild(b);sum.textContent=String(13*k);n.textContent="after "+k+" addition"+(k>1?"s":"");if(k>=7){clearInterval(t1);n.textContent="after 7 additions = 0x5B on the LEDs"}},650)};
+  xa_$(el,".xw-replay").onclick=run;
+  const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting&&!el.dataset.ran){el.dataset.ran="1";run()}})},{threshold:.3});io.observe(st);
+  const DATA={mlp:{sw:43155,hw:1087,swid:"b0",hwid:"a4",x:"39.7"},cnn:{sw:1202307,hw:57731,swid:"b0",hwid:"a2",x:"20.8"}};
+  let w="mlp",raf=0;
+  const fs=xa_$(el,".xw-fill.sw"),fh=xa_$(el,".xw-fill.hw"),msg=xa_$(el,".xw-msg");
+  const set=()=>{const d=DATA[w];xa_$(el,".xw-sw-v").textContent=d.sw.toLocaleString("en-US")+" cycles";xa_$(el,".xw-hw-v").textContent=d.hw.toLocaleString("en-US")+" cycles";xa_$(el,".xw-sw-id").textContent=d.swid;xa_$(el,".xw-hw-id").textContent=d.hwid;fs.style.width="0%";fh.style.width="0%";msg.textContent="Press “Start race”."};
+  xa_$$(el,".xw-tabs .chip").forEach(b=>b.onclick=()=>{cancelAnimationFrame(raf);w=b.dataset.w;xa_$$(el,".xw-tabs .chip").forEach(c=>c.classList.toggle("chip-on",c===b));set()});
+  xa_$(el,".xw-go").onclick=()=>{cancelAnimationFrame(raf);const d=DATA[w],T=7000,t0=performance.now();let hwDone=false;
+    const f=now=>{const e=now-t0,ps=Math.min(1,e/T),ph=Math.min(1,e/(T*d.hw/d.sw));fs.style.width=ps*100+"%";fh.style.width=ph*100+"%";
+      if(ph>=1&&!hwDone){hwDone=true;msg.innerHTML="⚡ The accelerator is already done. Software is still working…"}
+      if(ps<1)raf=requestAnimationFrame(f);else msg.innerHTML="Finished. The accelerator was <b>"+d.x+"× faster</b> ("+d.hw.toLocaleString("en-US")+" vs "+d.sw.toLocaleString("en-US")+" clock cycles)."};raf=requestAnimationFrame(f)};
+  set()
+}
+
+/* ---------------- 4. inside the accelerator ---------------- */
+const XA_ACCEL=`
+<div class="x-scroll"><svg class="x-svg xa-svg" viewBox="0 0 1120 330" role="img" aria-label="Accelerator data path diagram">
+ <defs><marker id="xaA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#64748b"/></marker></defs>
+ <path id="xaP" d="M96 120 H180 V100 H262 V120 H330 H560 H600 H660 H760 H860 H960 H1040" fill="none" stroke="none"/>
+ <!-- CPU -->
+ <rect x="10" y="70" width="90" height="100" rx="12" class="xa-b cpu"/><text x="55" y="112" class="xa-t" text-anchor="middle">CPU</text><text x="55" y="132" class="xa-s" text-anchor="middle">OUT / IN</text>
+ <!-- lock -->
+ <g transform="translate(175 34)"><rect x="-14" y="0" width="28" height="22" rx="5" fill="#059669"/><path d="M-8 0 V-8 A8 8 0 0 1 8 -8 V0" stroke="#059669" stroke-width="3.5" fill="none"/><text x="22" y="16" class="xa-s">key 0xA5 → port 0x5F</text></g>
+ <!-- ports -->
+ <rect x="120" y="90" width="110" height="34" rx="8" class="xa-b port"/><text x="175" y="112" class="xa-m" text-anchor="middle">A ← port 0x50</text>
+ <rect x="120" y="136" width="110" height="34" rx="8" class="xa-b port"/><text x="175" y="158" class="xa-m" text-anchor="middle">W ← port 0x51</text>
+ <path d="M100 120 H118" class="xa-l" marker-end="url(#xaA)"/><path d="M100 150 H118" class="xa-l" marker-end="url(#xaA)"/>
+ <!-- zero check -->
+ <path d="M300 82 L350 130 L300 178 L250 130Z" class="xa-b dec"/><text x="300" y="126" class="xa-s" text-anchor="middle">A or W</text><text x="300" y="142" class="xa-s" text-anchor="middle">= 0 ?</text>
+ <path d="M230 107 L262 120" class="xa-l"/><path d="M230 153 L262 140" class="xa-l"/>
+ <path d="M300 178 V236" class="xa-l" marker-end="url(#xaA)"/><text x="310" y="210" class="xa-s y">yes</text>
+ <rect x="236" y="240" width="128" height="52" rx="10" class="xa-b skip"/><text x="300" y="262" class="xa-t sm" text-anchor="middle">skip it</text><text x="300" y="280" class="xa-s" text-anchor="middle">SKIPCNT + 1 (0x5C)</text>
+ <path d="M350 130 H384" class="xa-l" marker-end="url(#xaA)"/><text x="358" y="120" class="xa-s y">no</text>
+ <!-- pipeline -->
+ <rect x="386" y="70" width="300" height="120" rx="14" class="xa-zone"/>
+ <text x="536" y="62" class="xa-s" text-anchor="middle">3-stage MAC pipeline (like a conveyor belt) · MACCNT + 1 (0x5D)</text>
+ <rect x="400" y="92" width="84" height="76" rx="10" class="xa-b st"/><text x="442" y="122" class="xa-t sm" text-anchor="middle">1 · latch</text><text x="442" y="142" class="xa-s" text-anchor="middle">grab a, w</text>
+ <rect x="494" y="92" width="84" height="76" rx="10" class="xa-b st"/><text x="536" y="122" class="xa-t sm" text-anchor="middle">2 · multiply</text><text x="536" y="142" class="xa-s" text-anchor="middle">a × w (16-bit)</text>
+ <rect x="588" y="92" width="84" height="76" rx="10" class="xa-b st"/><text x="630" y="122" class="xa-t sm" text-anchor="middle">3 · add</text><text x="630" y="142" class="xa-s" text-anchor="middle">into the total</text>
+ <!-- accumulator -->
+ <path d="M686 130 H714" class="xa-l" marker-end="url(#xaA)"/>
+ <rect x="716" y="88" width="120" height="84" rx="12" class="xa-b accb"/><text x="776" y="118" class="xa-t sm" text-anchor="middle">running total</text><text x="776" y="138" class="xa-s" text-anchor="middle">24-bit, signed</text><text x="776" y="156" class="xa-s" text-anchor="middle">read: 0x53–0x55</text>
+ <path d="M836 130 H864" class="xa-l" marker-end="url(#xaA)"/>
+ <!-- requant -->
+ <rect x="866" y="88" width="104" height="84" rx="12" class="xa-b rq"/><text x="918" y="116" class="xa-t sm" text-anchor="middle">shrink</text><text x="918" y="136" class="xa-s" text-anchor="middle">÷ 2ⁿ (0x56)</text><text x="918" y="154" class="xa-s" text-anchor="middle">clamp −128…127</text>
+ <text x="918" y="196" class="xa-s" text-anchor="middle">read: QOUT 0x57</text>
+ <path d="M970 130 H998" class="xa-l" marker-end="url(#xaA)"/>
+ <rect x="1000" y="88" width="110" height="84" rx="12" class="xa-b lut"/><text x="1055" y="116" class="xa-t sm" text-anchor="middle">activation</text><text x="1055" y="136" class="xa-s" text-anchor="middle">table, 4 banks</text><text x="1055" y="154" class="xa-s" text-anchor="middle">bank: 0x58</text>
+ <text x="1055" y="196" class="xa-s" text-anchor="middle">read: ACT 0x59</text>
+ <path d="M1055 200 V300 H55 V172" class="xa-l back" marker-end="url(#xaA)"/><text x="680" y="316" class="xa-s" text-anchor="middle">IN R4, 0x59 → the result goes back to the CPU</text>
+ <circle r="7" class="xa-dot"><animateMotion dur="5s" repeatCount="indefinite" keyPoints="0;1" keyTimes="0;1"><mpath href="#xaP"/></animateMotion></circle>
+</svg></div>
+<div class="xa-grid">
+ <div class="card"><div class="label">The 4 activation tables (bank 0–3)</div><p class="xw-p">An activation is a curve that decides how strongly a neuron “fires”. Computing curves is expensive, so the chip simply looks the answer up in a 256-entry table.</p><div class="xa-luts"></div></div>
+ <div class="card"><div class="label">Worked example · the waveform demo (3 × 4)</div>
+  <ol class="xa-ol">
+   <li><code>OUT 0x5F ← 0xA5</code> unlocks the accelerator.</li>
+   <li><code>OUT 0x52 ← 0x03</code> clears the total and the counters.</li>
+   <li><code>OUT 0x50 ← 3</code> stores A = 3.</li>
+   <li><code>OUT 0x51 ← 4</code> starts the multiply. The 3 pipeline stages light up one after another.</li>
+   <li>The product becomes 12 and the total becomes <code>0x00000C</code>.</li>
+   <li><code>IN R3, 0x53</code> reads the low byte, then <code>OUT 0x02</code> puts <b>0x0C</b> on the LEDs and <code>HLT</code> stops.</li>
+  </ol>
+  <p class="xw-foot">This run is self-checking (<code>make waveform</code>): LEDs = 0x0C, 1 multiply done, 0 skipped.</p>
+ </div>
+</div>
+<div class="xa-grid">
+ <div class="card"><div class="label">Why “locked” after reset?</div><p class="xw-p">Old programs that know nothing about the accelerator must behave exactly as before. While locked, writes are ignored and reads return 0. Only writing the key <code>0xA5</code> to port <code>0x5F</code> opens it; any other value locks it again. It is a safety switch, not a security feature.</p></div>
+ <div class="card"><div class="label">Blocking vs “posted” writes</div>
+  <div class="xa-tl"><span>Blocking</span><div><i class="w">write W</i><i class="b">wait at the write</i><i class="r">read result</i></div></div>
+  <div class="xa-tl"><span>Posted</span><div><i class="w">write W</i><i class="b">wait at the read</i><i class="r">read result</i></div></div>
+  <p class="xw-foot">In posted mode the CPU does not wait at the write, but our programs read the result straight away, so the waiting just moves to the read. Same speed in both modes.</p></div>
+</div>`;
+function xa_initAccel(el){
+  const box=xa_$(el,".xa-luts");const names=["ReLU","Sigmoid","Offset-binary","Tanh"],desc=["negative → 0","S-curve, 0…255","value + 128","S-curve, −127…127"];
+  box.innerHTML=[0,1,2,3].map(b=>{const tb=Iu[b];let pts=[];for(let i=0;i<256;i++){const x=(i^128);/* signed order: idx 128..255,0..127 */const idx=(x)&255;const sx=i;let y=tb[idx];if(b===0||b===3)y=y>127?y-256:y;pts.push([sx,y])}
+    const ymin=(b===0||b===3)?-128:0,ymax=(b===0||b===3)?127:255,W=160,H=96;
+    const P=pts.map(([x,y])=>(x/255*W).toFixed(1)+","+(H-(y-ymin)/(ymax-ymin)*H).toFixed(1)).join(" ");
+    const y0=H-(0-ymin)/(ymax-ymin)*H;
+    return`<figure class="xa-lut"><svg viewBox="-4 -4 ${W+8} ${H+8}"><rect x="0" y="0" width="${W}" height="${H}" class="xa-lbg"/><line x1="${W/2}" y1="0" x2="${W/2}" y2="${H}" class="xa-ax"/><line x1="0" y1="${y0}" x2="${W}" y2="${y0}" class="xa-ax"/><polyline points="${P}" class="xa-lc b${b}"/></svg><figcaption><b>${b} · ${names[b]}</b><span>${desc[b]}</span></figcaption></figure>`}).join("")
+}
+
+/* ---------------- 5. the flower network ---------------- */
+const XA_IRIS=`
+<div class="xi-grid">
+ <div class="card xi-net"><div class="x-scroll"><svg class="x-svg xi-svg" viewBox="0 0 640 400" role="img" aria-label="The 4-6-3 neural network with its real int8 weights"></svg></div>
+  <div class="dsv-legend"><span><i style="border-color:#4f46e5"></i>positive weight</span><span><i style="border-color:#dc2626"></i>negative weight</span><span>thicker = bigger number · dashed node = bias (always 127)</span></div></div>
+ <div class="xi-side">
+  <div class="card"><div class="label">How to read the picture</div>
+   <ul class="xi-ul">
+    <li><b>Left:</b> the 4 measurements, already turned into 0–127.</li>
+    <li><b>Lines:</b> each line is one <b>weight</b>, a whole number from −127 to 127. These are the real trained weights.</li>
+    <li><b>Middle:</b> 6 “detectors”. Each one adds up input × weight; if the total is negative it switches off (ReLU).</li>
+    <li><b>Right:</b> 3 scores, one per species. The largest wins.</li>
+    <li><b>Bias trick:</b> instead of a separate “+ b”, a fake input fixed at 127 is multiplied by the bias weight. So the hardware only ever needs multiply-add.</li>
+   </ul></div>
+  <div class="xi-facts"><div><b>150</b><span>flowers in the dataset</span></div><div><b>23</b><span>test flowers</span></div><div><b>22 / 23</b><span>correct (95.65%)</span></div><div><b>51</b><span>multiply-adds each</span></div></div>
+ </div>
+</div>
+<h3 class="xi-h3">Try it: describe a flower and watch the network decide</h3>
+<p class="xi-lead">Move the sliders, or load one of the 23 real test flowers. This runs the same int8 arithmetic as the chip (same weights, shifts, tables and tie rule).</p>`;
+function xa_initIris(el){
+  const svg=xa_$(el,".xi-svg"),W=Yh;
+  const inL=["Sepal length","Sepal width","Petal length","Petal width","bias 127"],hid=6,outL=["Setosa","Versicolor","Virginica"];
+  const xi=110,xh=330,xo=540;const yIn=k=>48+k*72,yH=k=>36+k*52,yO=k=>110+k*92,yHb=36+6*52;
+  let o="";
+  const ed=(x1,y1,x2,y2,w)=>{const a=Math.abs(w);if(w===0)return`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="xi-e z"><title>weight 0 (skipped)</title></line>`;return`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="xi-e ${w>0?"p":"n"}" style="stroke-width:${(0.6+a/127*5).toFixed(2)};opacity:${(0.25+a/127*0.7).toFixed(2)}"><title>weight ${w}</title></line>`};
+  for(let j=0;j<hid;j++){for(let i=0;i<4;i++)o+=ed(xi,yIn(i),xh,yH(j),W.w1[i][j]);o+=ed(xi,yIn(4),xh,yH(j),W.b1[j])}
+  for(let k=0;k<3;k++){for(let j=0;j<hid;j++)o+=ed(xh,yH(j),xo,yO(k),W.w2[j][k]);o+=ed(xh,yHb,xo,yO(k),W.b2[k])}
+  inL.forEach((l,i)=>{o+=`<circle cx="${xi}" cy="${yIn(i)}" r="15" class="xi-n in ${i===4?"bias":""}"/><text x="${xi-24}" y="${yIn(i)+4}" class="xi-t" text-anchor="end">${l}</text>`});
+  for(let j=0;j<hid;j++)o+=`<circle cx="${xh}" cy="${yH(j)}" r="15" class="xi-n hd"/><text x="${xh}" y="${yH(j)+4}" class="xi-tn" text-anchor="middle">h${j+1}</text>`;
+  o+=`<circle cx="${xh}" cy="${yHb}" r="13" class="xi-n in bias"/><text x="${xh}" y="${yHb+4}" class="xi-tn" text-anchor="middle">127</text>`;
+  outL.forEach((l,k)=>{o+=`<circle cx="${xo}" cy="${yO(k)}" r="17" class="xi-n out o${k}"/><text x="${xo+26}" y="${yO(k)+4}" class="xi-t">${l}</text>`});
+  o+=`<text x="${xi}" y="392" class="xi-cap" text-anchor="middle">4 inputs</text><text x="${xh}" y="392" class="xi-cap" text-anchor="middle">6 hidden (ReLU)</text><text x="${xo}" y="392" class="xi-cap" text-anchor="middle">3 scores</text>`;
+  svg.innerHTML=o
+}
+
+/* ---------------- 6. CNN: how it looks at a picture ---------------- */
+const XA_CNN=`
+<div class="xc-grid">
+ <div class="card"><div class="label">What the real network classifies</div>
+  <p class="xw-p">Handwritten digits <b>0, 1, 2 and 3</b> from the public MNIST dataset, shrunk from 28×28 to just <b>8×8 pixels</b> (each pixel 0–127). LED 0–3 shows which digit it thinks it is.</p>
+  <div class="xc-digits"></div>
+  <p class="xw-foot">Drawn here as an illustration of an 8×8 digit. Real accuracy on 64 test images: <b>62 of 64</b> (96.9%), both before and after rounding to int8.</p>
+ </div>
+ <div class="card"><div class="label">The stream peripheral · a conveyor belt of bytes</div>
+  <p class="xw-p">The Iris weights fit in data memory. The CNN’s do not, so a simulation-only device hands each sample to the CPU <b>one byte at a time</b>.</p>
+  <div class="x-scroll"><svg class="x-svg sm" viewBox="0 0 520 150" role="img" aria-label="One 252-byte sample of the stream">
+   <rect x="10" y="40" width="${64/252*500}" height="40" rx="6" class="xc-s img"/><rect x="${10+64/252*500}" y="40" width="${40/252*500}" height="40" class="xc-s cv"/><rect x="${10+104/252*500}" y="40" width="${148/252*500}" height="40" rx="6" class="xc-s fc"/>
+   <text x="${10+32/252*500}" y="65" class="xc-st" text-anchor="middle">64 image</text><text x="${10+84/252*500}" y="65" class="xc-st" text-anchor="middle">40</text><text x="${10+178/252*500}" y="65" class="xc-st" text-anchor="middle">148 fully-connected weights</text>
+   <text x="${10+84/252*500}" y="100" class="xc-sm" text-anchor="middle">conv weights</text>
+   <text x="10" y="28" class="xc-sm">one sample = 252 bytes · 64 samples = 16,128 bytes</text>
+   <g class="xc-ptr"><path d="M0 -14 L8 0 L-8 0Z" fill="#d97706"/><animateTransform attributeName="transform" type="translate" values="12 96;508 96" dur="6s" repeatCount="indefinite"/></g>
+   <text x="10" y="132" class="xc-sm">▲ one pointer: every read of port 0x45 / 0x46 returns the next byte; 0x44 jumps to the next sample</text>
+  </svg></div>
+ </div>
+</div>
+<div class="card xc-shape"><div class="label">The shape of the data, layer by layer</div>
+ <div class="x-scroll"><svg class="x-svg" viewBox="0 0 1100 230" role="img" aria-label="CNN shapes: 8 by 8 image, four 6 by 6 maps, four 3 by 3 maps, 36 features, 4 scores">
+  <g transform="translate(20 40)">${(()=>{let o="";for(let i=0;i<8;i++)for(let j=0;j<8;j++)o+=`<rect x="${j*18}" y="${i*18}" width="16" height="16" rx="2" class="xc-px"/>`;return o})()}
+   <rect width="52" height="52" rx="4" class="xc-win"><animateTransform attributeName="transform" type="translate" dur="7.2s" repeatCount="indefinite" calcMode="discrete" values="${(()=>{let v=[];for(let r=0;r<6;r++)for(let c=0;c<6;c++)v.push((c*18)+" "+(r*18));return v.join(";")})()}"/></rect>
+  </g>
+  <text x="92" y="214" class="xc-cap" text-anchor="middle">8×8 image</text><text x="92" y="30" class="xc-sm" text-anchor="middle">3×3 window slides</text>
+  <text x="200" y="120" class="xc-arr">→</text>
+  ${[0,1,2,3].map(k=>`<g transform="translate(${236+k*14} ${52+k*14})">${(()=>{let o="";for(let i=0;i<6;i++)for(let j=0;j<6;j++)o+=`<rect x="${j*14}" y="${i*14}" width="12" height="12" rx="2" class="xc-fm f${k}"/>`;return o})()}</g>`).join("")}
+  <text x="320" y="214" class="xc-cap" text-anchor="middle">4 filters → four 6×6 maps</text><text x="320" y="30" class="xc-sm" text-anchor="middle">accelerator multiply-adds + ReLU</text>
+  <text x="420" y="120" class="xc-arr">→</text>
+  ${[0,1,2,3].map(k=>`<g transform="translate(${462+k*12} ${78+k*12})">${(()=>{let o="";for(let i=0;i<3;i++)for(let j=0;j<3;j++)o+=`<rect x="${j*16}" y="${i*16}" width="14" height="14" rx="2" class="xc-fm f${k}"/>`;return o})()}</g>`).join("")}
+  <text x="510" y="214" class="xc-cap" text-anchor="middle">2×2 max-pool → four 3×3</text><text x="510" y="30" class="xc-sm" text-anchor="middle">keep the biggest of every 4</text>
+  <text x="590" y="120" class="xc-arr">→</text>
+  <g transform="translate(626 22)">${(()=>{let o="";for(let i=0;i<36;i++)o+=`<rect x="${(i%2)*14}" y="${Math.floor(i/2)*9.6}" width="12" height="8" rx="2" class="xc-fm f${Math.floor(i/9)}"/>`;return o})()}</g>
+  <text x="640" y="214" class="xc-cap" text-anchor="middle">36 features</text>
+  <text x="680" y="120" class="xc-arr">→</text>
+  ${[0,1,2,3].map(k=>`<rect x="726" y="${54+k*30}" width="${[60,150,90,70][k]}" height="20" rx="4" class="xc-sc ${k===1?"w":""}"/><text x="${730+[60,150,90,70][k]+6}" y="${69+k*30}" class="xc-sm">digit ${k}</text>`).join("")}
+  <text x="800" y="214" class="xc-cap" text-anchor="middle">36 × 4 weights → 4 scores</text><text x="800" y="30" class="xc-sm" text-anchor="middle">fully connected, in software</text>
+  <text x="920" y="120" class="xc-arr">→</text>
+  ${[0,1,2,3].map(k=>`<circle cx="${980+k*28}" cy="110" r="10" class="xs-led ${k===1?"on":""}"/><text x="${980+k*28}" y="140" class="xc-sm" text-anchor="middle">${k}</text>`).join("")}
+  <text x="1022" y="214" class="xc-cap" text-anchor="middle">biggest score → LED</text>
+ </svg></div>
+</div>
+<div class="xc-note"><b>About the interactive demo below.</b> To make convolution easy to <i>see</i>, the demo uses four hand-made line filters (horizontal, vertical and two diagonals) instead of the trained ones, so its “classes” are line directions. The arithmetic is identical to the real program: int8 multiply-adds with zero skipping, shift, clamp, ReLU table, offset-binary scores, lowest class wins ties. The real trained weights (<code>cnn/data/weights_q.json</code>) recognise digits 0–3.</div>`;
+function xa_initCnn(el){
+  const D={0:["00111100","01100110","11000011","11000011","11000011","11000011","01100110","00111100"],1:["00011000","00111000","01111000","00011000","00011000","00011000","00011000","01111110"],2:["00111100","01100110","00000110","00001100","00011000","00110000","01100000","01111110"],3:["01111100","00000110","00000110","00111100","00000110","00000110","00000110","01111100"]};
+  xa_$(el,".xc-digits").innerHTML=[0,1,2,3].map(d=>`<figure><svg viewBox="0 0 80 80">${D[d].map((r,i)=>[...r].map((c,j)=>`<rect x="${j*10}" y="${i*10}" width="9" height="9" rx="1.5" class="${c==="1"?"on":""}"/>`).join("")).join("")}</svg><figcaption>digit ${d} → LED ${d}</figcaption></figure>`).join("")
+}
+
+/* ---------------- 7. proof: the verification flow ---------------- */
+const XA_PROOF=`
+<div class="card xp-card"><div class="label">The core check, drawn out</div>
+ <div class="x-scroll"><svg class="x-svg" viewBox="0 0 1100 250" role="img" aria-label="Verification flow: one program runs on the Python golden model and on the Verilog RTL, the two traces are compared">
+  <defs><marker id="xpA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#64748b"/></marker></defs>
+  <rect x="10" y="95" width="120" height="60" rx="10" class="xp-b f"/><text x="70" y="122" class="xp-t" text-anchor="middle">program.asm</text><text x="70" y="140" class="xp-s" text-anchor="middle">assembly text</text>
+  <path d="M130 125 H168" class="xp-l" marker-end="url(#xpA)"/>
+  <rect x="170" y="95" width="130" height="60" rx="10" class="xp-b t"/><text x="235" y="122" class="xp-t" text-anchor="middle">dsd8asm.py</text><text x="235" y="140" class="xp-s" text-anchor="middle">our assembler</text>
+  <path d="M300 125 H338" class="xp-l" marker-end="url(#xpA)"/>
+  <rect x="340" y="95" width="120" height="60" rx="10" class="xp-b f"/><text x="400" y="122" class="xp-t" text-anchor="middle">program.hex</text><text x="400" y="140" class="xp-s" text-anchor="middle">16-bit words</text>
+  <path d="M460 115 C500 115 500 55 540 55" class="xp-l" marker-end="url(#xpA)"/><path d="M460 135 C500 135 500 195 540 195" class="xp-l" marker-end="url(#xpA)"/>
+  <rect x="542" y="22" width="210" height="66" rx="10" class="xp-b g"/><text x="647" y="50" class="xp-t" text-anchor="middle">Python golden model</text><text x="647" y="70" class="xp-s" text-anchor="middle">dsd8sim.py · written separately</text>
+  <rect x="542" y="162" width="210" height="66" rx="10" class="xp-b r"/><text x="647" y="190" class="xp-t" text-anchor="middle">Verilog CPU (RTL)</text><text x="647" y="210" class="xp-s" text-anchor="middle">simulated with Icarus Verilog</text>
+  <path d="M752 55 H790" class="xp-l" marker-end="url(#xpA)"/><path d="M752 195 H790" class="xp-l" marker-end="url(#xpA)"/>
+  <rect x="792" y="30" width="110" height="50" rx="8" class="xp-b f"/><text x="847" y="60" class="xp-t" text-anchor="middle">gold.trace</text>
+  <rect x="792" y="170" width="110" height="50" rx="8" class="xp-b f"/><text x="847" y="200" class="xp-t" text-anchor="middle">dut.trace</text>
+  <path d="M902 55 C940 55 940 115 968 118" class="xp-l" marker-end="url(#xpA)"/><path d="M902 195 C940 195 940 135 968 132" class="xp-l" marker-end="url(#xpA)"/>
+  <circle cx="1012" cy="125" r="42" class="xp-ok"/><text x="1012" y="120" class="xp-okt" text-anchor="middle">diff</text><text x="1012" y="140" class="xp-okt" text-anchor="middle">same ✓</text>
+ </svg></div>
+ <p class="xw-p">A “trace” is a diary with one line for every instruction that finishes. If the two diaries differ anywhere, the test fails and reports the first different line.</p>
+ <div class="xp-trace"><div class="xp-tl">${[["0001","which instruction (1st)"],["000","its address (PC)"],["120d","the instruction word"],["1","wrote a register?"],["1","which register (R1)"],["0d","value written (13)"],["0","wrote memory?"],["00","memory address"],["00","memory value"],["0000","flags Z N C V"]].map(([v,l],i)=>`<div class="c${i}"><b>${v}</b><span>${l}</span></div>`).join("")}</div>
+ <p class="xw-foot">Line 1 of the 13 × 7 program, <code>LDI R1, 13</code>: R1 becomes 0x0D, no memory write, flags all 0.</p></div>
+</div>
+<div class="xp-ladder">${[["Lint","clean","Verilator reads all the Verilog and finds no structural mistakes"],["Unit tests","13 / 13","each block alone; 10,000 random ALU and multiplier vectors"],["Whole programs","2 / 2","multiply 13×7 and count bits of 0xB7: traces identical"],["Flower runs","230 / 230","23 flowers × 5 programs × 2 bus modes"],["Image runs","256 / 256","64 images × 4 programs; middle results checked too"],["Waveform","PASS","3 × 4 demo: LEDs and total = 0x0C"]].map(([a,b,c])=>`<div><span>${a}</span><b>${b}</b><p>${c}</p></div>`).join("")}</div>`;
+
+/* ---------------- 8. viva questions ---------------- */
+const XA_FAQ=`<div class="xf">${[
+ ["In one sentence, what is this project?","We designed an 8-bit processor (DSD-8) from scratch in Verilog, attached a small neural-network accelerator to its I/O bus, and proved, with an independent Python model, that it correctly classifies Iris flowers 39.7× faster and 8×8 digit images 20.8× faster than software on the same processor."],
+ ["Why put the accelerator on the I/O bus instead of adding a MUL instruction?","All 16 opcodes are already used, and a new instruction would change the assembler, decoder, control unit and the conformance traces. Using the existing IN and OUT instructions keeps the instruction set unchanged, so every old program still behaves exactly the same. The lock key (0xA5) keeps the accelerator switched off until a program asks for it."],
+ ["What does “8-bit” mean, and how are negative numbers stored?","Every register, the ALU and every memory location hold one byte: 0 to 255. Negative numbers use two’s complement: −1 is 0xFF, −2 is 0xFE, −128 is 0x80. The assembler only accepts 0–255, so the program generator writes negative weights as their byte value."],
+ ["What is int8 quantization, and did it cost accuracy?","Training produces decimal weights. We round them to whole numbers between −127 and 127 and pick power-of-two shifts so the results stay in range. On the 23 shipped test flowers both the float and int8 models get 22 right (95.65%). Caveat: the same 23 flowers were used to choose the shifts, so this is the accuracy of the shipped model, not an independent estimate."],
+ ["What is zero skipping?","Anything times zero is zero, so if the input or the weight is 0 the accelerator does not start a multiply at all; it only counts it in SKIPCNT (port 0x5C). After ReLU many values are 0, and many image pixels are 0, so this saves work."],
+ ["Why is the accumulator 24 bits?","Each product of two int8 numbers needs up to 16 bits, and a neuron adds many of them. 24 bits gives plenty of head-room. If it ever overflows it wraps around exactly like the Python reference, so both always agree."],
+ ["What are “retire” and “trace”?","An instruction retires when it has completely finished. At that moment one trace line is written: address, instruction, which register or memory byte changed and the flags. Comparing traces from Python and Verilog checks the processor instruction by instruction."],
+ ["How do you know the Verilog is right and not just the tests?","Four independent layers: lint, 13 unit testbenches (with random vectors), whole-program trace comparison against a separately written Python model, and 486 end-to-end network runs that must match the trace, obey the bus rules and light the reference answer on the LEDs."],
+ ["Why is a4 so much faster than a2?","a4 is “unrolled”: every weight is written directly into the program, so there are no loops, pointers or branches. a2 still loops over weights stored in memory. The hardware does the same maths in both; the difference is loop overhead."],
+ ["Why did posted mode give no speed-up?","Posted mode lets the CPU continue right after writing a weight. But our programs read the result right after the writes, so the waiting just moves from the write to the read. Issuing independent multiplies before reading would be needed (future work)."],
+ ["Why is the CNN speed-up (20.8×) smaller than Iris (39.7×)?","In the convolution loop a lot of time goes into pointer arithmetic and reading bytes from the stream device. The accelerator removes the multiply loops, but not that bookkeeping. It still retires about 24× fewer instructions (13,696 vs 332,617)."],
+ ["Did you run it on a real FPGA board?","No. The design is written to be synthesizable and dsd8_top.v is the top level, but we did not include board pin constraints, a clock wrapper or a bitstream, and we report no area, clock-speed or power numbers. All results are from cycle-accurate simulation."],
+ ["Is the CNN stream device real hardware?","No, it is a simulation-only peripheral (sim/cnn_periph.v, ports 0x44–0x46). Importantly, nothing under rtl/ was changed for the CNN: the CPU and accelerator are exactly the ones used for Iris."],
+ ["How long does one instruction take?","2 clock cycles for NOP/HLT, 3 for CMP, jump and branch, 4 for ALU, shift, LDI and ST, 5 for LD; OUT takes 4 and IN 5, plus any time spent waiting for the device to be ready."],
+ ["What would you do next?","Put it on an FPGA board with constraints and real peripherals, measure area, clock speed and power, add a small queue or several accumulators so multiplies can overlap, and try larger datasets."]
+].map(([q,a],i)=>`<details class="xf-q"${i===0?" open":""}><summary><span class="xf-n">${i+1}</span>${q}</summary><p>${a}</p></details>`).join("")}</div>`;
+
+/* ---------------- simulator: adjustable sizes + full-screen helpers ---------------- */
+const xa_LS=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,String(v))}catch(e){return null}};
+function xa_fsNote(){
+  if(document.querySelector(".xa-toast"))return;
+  const d=document.createElement("div");d.className="xa-toast";
+  d.innerHTML=window.self!==window.top?"This preview window does not allow real full screen, so the simulator fills the window instead. For true full screen, download the HTML file and open it in Chrome, Edge or Firefox.":"Your browser refused full screen, so the simulator fills the window instead. Press Esc or “Exit full screen” to go back.";
+  document.body.appendChild(d);setTimeout(()=>d.classList.add("on"),20);setTimeout(()=>{d.classList.remove("on");setTimeout(()=>d.remove(),400)},7000)
+}
+function xa_applySizes(){
+  const t=document.getElementById("try");if(!t)return;
+  const l=xa_LS("xaLeft"),tp=xa_LS("xaTop"),z=xa_LS("xaZoom");
+  if(l){t.style.setProperty("--xa-left",l+"px");t.classList.add("xa-sized")}else{t.style.removeProperty("--xa-left");t.classList.remove("xa-sized")}
+  if(tp)t.style.setProperty("--xa-top",tp+"px");else t.style.removeProperty("--xa-top");
+  t.style.setProperty("--xa-z",z||"1")
+}
+function xa_split(){
+  if(window.__xaS)return;window.__xaS=1;xa_applySizes();
+  const LSEL=".dsv-split>.dsv-l, .lg\\:grid-cols-5>div:first-child";
+  document.addEventListener("pointerdown",e=>{
+    const t=document.getElementById("try");if(!t||!t.contains(e.target)||e.button!==0)return;
+    const L=e.target.closest(LSEL),R=t.classList.contains("dsv-fs")?e.target.closest(".dsv-r"):null;
+    let mode=null,box=null;
+    if(L&&window.innerWidth>=1024){box=L.getBoundingClientRect();if(e.clientX>box.right-1)mode="x"}
+    if(!mode&&R){box=R.getBoundingClientRect();if(e.clientY>box.bottom-1)mode="y"}
+    if(!mode)return;
+    e.preventDefault();document.body.classList.add("xa-drag",mode==="x"?"xa-dx":"xa-dy");
+    const grid=(mode==="x"?L:R).parentElement.getBoundingClientRect(),zoom=parseFloat(getComputedStyle(t).getPropertyValue("--xa-z"))||1;
+    let val=null;
+    const mv=ev=>{if(mode==="x"){val=Math.round(Math.max(260,Math.min(grid.width-380,(ev.clientX-box.left)))/zoom);t.style.setProperty("--xa-left",val+"px");t.classList.add("xa-sized")}
+      else{val=Math.round(Math.max(90,Math.min(window.innerHeight-260,(ev.clientY-box.top)))/zoom);t.style.setProperty("--xa-top",val+"px")}};
+    const up=()=>{window.removeEventListener("pointermove",mv);window.removeEventListener("pointerup",up);document.body.classList.remove("xa-drag","xa-dx","xa-dy");if(val!==null)xa_LS(mode==="x"?"xaLeft":"xaTop",val);window.dispatchEvent(new Event("resize"))};
+    window.addEventListener("pointermove",mv);window.addEventListener("pointerup",up)
+  });
+  document.addEventListener("dblclick",e=>{
+    const t=document.getElementById("try");if(!t||!t.contains(e.target))return;
+    const L=e.target.closest(LSEL),R=e.target.closest(".dsv-r");
+    if(L&&e.clientX>L.getBoundingClientRect().right-1){xa_LS("xaLeft",null);xa_applySizes()}
+    else if(R&&e.clientY>R.getBoundingClientRect().bottom-1){xa_LS("xaTop",null);xa_applySizes()}
+  })
+}
+function XZoom(){
+  const [z,setZ]=Bt.useState(()=>parseFloat(xa_LS("xaZoom"))||1);
+  Bt.useEffect(()=>{xa_try(xa_split)},[]);
+  const set=v=>{v=Math.round(Math.max(.7,Math.min(1.5,v))*10)/10;setZ(v);xa_LS("xaZoom",v===1?null:v);xa_applySizes()};
+  return s.jsxs("div",{className:"xa-zoom",title:"Size of the simulator. Drag the grey bars between panels to resize them; double-click a bar to reset it.",children:[
+    s.jsx("span",{className:"xa-zl",children:"Size"}),
+    s.jsx("button",{className:"btn",onClick:()=>set(z-.1),disabled:z<=.7,"aria-label":"Smaller",children:"A−"}),
+    s.jsx("button",{className:"btn xa-zv",onClick:()=>{set(1);xa_LS("xaLeft",null);xa_LS("xaTop",null);xa_applySizes()},title:"Reset size and panel widths",children:Math.round(z*100)+"%"}),
+    s.jsx("button",{className:"btn",onClick:()=>set(z+.1),disabled:z>=1.5,"aria-label":"Bigger",children:"A+"})
+  ]})
+}
+
+const Jh=[["overview","Overview"],["cpu","Processor"],["why","Why a helper"],["iris","Flower net"],["try","Try it"],["cnn","CNN"],["speed","Speed"],["proof","Proof"],["reference","Reference"]];function kh(){return s.jsxs("div",{className:"min-h-screen bg-white text-slate-800",children:[s.jsx("nav",{className:"sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur",children:s.jsxs("div",{className:"mx-auto flex h-12 max-w-6xl items-center gap-5 overflow-x-auto px-5 text-sm",children:[s.jsx("a",{href:"#top",className:"shrink-0 font-bold text-slate-900",children:"DSD-8"}),Jh.map(([o,E])=>s.jsx("a",{href:`#${o}`,className:"shrink-0 text-slate-600 hover:text-indigo-700",children:E},o))]})}),s.jsx("header",{id:"top",className:"bg-gradient-to-b from-indigo-50 to-white",children:s.jsxs("div",{className:"mx-auto max-w-6xl px-5 pb-14 pt-14",children:[s.jsxs("div",{className:"grid items-center gap-10 lg:grid-cols-2",children:[s.jsxs("div",{children:[s.jsx("div",{className:"text-xs font-semibold uppercase tracking-widest text-indigo-600",children:"Sukkur IBA University · Digital System Design · Dr. Asim Samejo"}),s.jsx("div",{className:"text-xs font-semibold uppercase tracking-widest text-indigo-600",children:"Submitted by: Hamadullah Bijarani, Areeb Memon, Sarang Khoso"}),s.jsx("h1",{className:"mt-3 text-3xl font-bold leading-tight tracking-tight text-slate-900 sm:text-4xl xl:text-5xl",children:"A tiny computer we built from scratch, then taught to recognise flowers and images."}),s.jsxs("p",{className:"mt-5 text-lg leading-relaxed text-slate-600",children:[s.jsx("strong",{className:"text-slate-900",children:"DSD-8"})," is a simple 8-bit processor written in Verilog (a language for describing chips). It can only add, compare and move bytes, so doing neural-network maths on it is painfully slow. We attached a small helper chip, the ",s.jsx("strong",{className:"text-slate-900",children:"accelerator"}),", that does the multiplying in hardware, and measured how much faster it makes things. Then we ran a second, bigger job on the very same hardware: a small CNN that recognises handwritten digits."]}),s.jsx(XCta,{})]}),s.jsx(XHero,{})]}),s.jsx("div",{className:"mt-8 grid grid-cols-2 gap-3 lg:grid-cols-3",children:[["39.7×","faster on Iris","the best accelerated program vs. plain software: 1,087 vs. 43,155 clock cycles"],["20.8×","faster on a CNN","8×8 digit classifier: 57,731 vs. 1,202,307 clock cycles, on the same unchanged hardware"],["22 of 23","flowers right","95.65% accuracy on Iris test flowers, using only 8-bit whole numbers"],["62 of 64","digits right","96.9% int8 accuracy on 64 handwritten-digit test images (the float model also gets 62)"],["486 / 486","runs identical","230 flower runs and 256 image runs each matched an independent Python model step by step"],["13 / 13","tests pass","plus clean static lint and 2 whole-program checks"]].map(([o,E,b])=>s.jsxs("div",{className:"rounded-2xl border border-slate-200 bg-white p-4 shadow-sm",children:[s.jsx("div",{className:"text-3xl font-bold tracking-tight text-indigo-700",children:o}),s.jsx("div",{className:"text-sm font-semibold text-slate-900",children:E}),s.jsx("div",{className:"mt-1 text-xs leading-snug text-slate-500",children:b})]},o))})]})}),s.jsxs(Zl,{id:"overview",kicker:"Overview",title:"What we built, in three parts",lead:"Think of a very small calculator that follows a written program, a specialist assistant that does one job very fast, and a pile of checks proving the two agree.",children:[s.jsx("div",{className:"grid gap-5 md:grid-cols-3",children:[["1","The processor","DSD-8 reads a program one instruction at a time: 16 opcodes, 8 registers, 512 program slots, 256 bytes of data memory. It is a “Harvard” design, meaning program and data live in separate memories."],["2","The accelerator","A multiply-and-add engine on the processor’s I/O bus (ports 0x50–0x5F). It works on signed 8-bit integers (int8), skips multiplications by zero, and can apply activation curves from built-in tables. It stays locked until software writes the key 0xA5, so old programs are unaffected. A second workload, a small CNN, reuses it with no hardware change."],["3","The proof","A custom assembler and a Python “golden” simulator define what correct looks like. The Verilog must match it instruction by instruction, across unit tests, whole programs and 486 neural-network runs (230 flower + 256 image)."]].map(([o,E,b])=>s.jsxs("div",{className:"card",children:[s.jsx("div",{className:"flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-sm font-bold text-white",children:o}),s.jsx("h3",{className:"mt-3 text-lg font-semibold text-slate-900",children:E}),s.jsx("p",{className:"mt-1 text-sm leading-relaxed text-slate-600",children:b})]},o))}),s.jsxs("div",{className:"mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm leading-relaxed text-slate-600",children:[s.jsx("strong",{className:"text-slate-900",children:"The workflow:"})," write assembly (",s.jsx(Ht,{children:".asm"}),") → ",s.jsx(Ht,{children:"dsd8asm.py"})," turns it into machine code (",s.jsx(Ht,{children:".hex"}),") → run it on the Python golden simulator ",s.jsx("em",{children:"and"})," on the Verilog design → compare the two traces line by line. A trace line records every instruction that finishes (“retires”) and what it changed."]})]}),s.jsxs(Zl,{id:"cpu",tone:"soft",kicker:"Interactive diagram",title:"How the processor runs one instruction",lead:"Pick an instruction and step through it. Lit-up blocks are the parts working in that stage. Click any block to learn what it does (plain English first, technical detail underneath).",children:[s.jsx(Qh,{}),s.jsxs("div",{className:"mt-8 grid gap-5 lg:grid-cols-2",children:[s.jsxs("div",{className:"card",children:[s.jsx("div",{className:"label",children:"Every instruction is 16 bits"}),s.jsxs("div",{className:"mt-3 flex overflow-hidden rounded-lg text-center font-mono text-[11px] text-white",children:[s.jsxs("div",{className:"w-1/4 bg-indigo-700 py-2",children:["opcode",s.jsx("br",{}),"15–12"]}),s.jsxs("div",{className:"w-1/4 bg-sky-600 py-2",children:["rd",s.jsx("br",{}),"11–9"]}),s.jsxs("div",{className:"w-1/4 bg-emerald-600 py-2",children:["rs1 · rs2",s.jsx("br",{}),"8–3"]}),s.jsxs("div",{className:"w-1/4 bg-slate-500 py-2",children:["spare / imm8",s.jsx("br",{}),"low bits"]})]}),s.jsxs("p",{className:"mt-3 text-sm text-slate-600",children:["The first 4 bits pick one of 16 operations. The rest name the registers, or hold a number or a jump address. Immediates are 0–255 only, so a negative int8 such as −2 is written as its two’s-complement byte ",s.jsx(Ht,{children:"0xFE"}),"."]})]}),s.jsxs("div",{className:"card",children:[s.jsx("div",{className:"label",children:"The 16 instructions"}),s.jsx("dl",{className:"mt-2 grid grid-cols-[auto,1fr] gap-x-4 gap-y-1 text-sm",children:[["Move","NOP · LDI Rd,imm · LD Rd,[Rp] · ST [Rp],Rs"],["Calculate","ADD · SUB · AND · OR · XOR · SHL · SHR"],["Compare","CMP (sets flags only)"],["Jump","JMP · BEQ BNE BCS BCC BMI BPL BVS BVC"],["Outside","IN Rd,port · OUT port,Rs"],["Stop","HLT"]].map(([o,E])=>s.jsxs(Bt.Fragment,{children:[s.jsx("dt",{className:"font-semibold text-slate-900",children:o}),s.jsx("dd",{className:"font-mono text-[12px] text-slate-600",children:E})]},o))}),s.jsxs("p",{className:"mt-3 text-xs text-slate-500",children:["Flags are always ordered Z N C V. For SUB/CMP, carry = 1 means “no borrow”. Branches use absolute 9-bit addresses. ",s.jsx(Ht,{children:"MOV"})," and ",s.jsx(Ht,{children:"NOT"})," are assembler shortcuts built from OR and XOR."]})]})]})]}),s.jsx(Zl,{id:"why",kicker:"The problem",title:"Why does a tiny CPU need a helper chip?",lead:"Neural networks are mostly multiply-and-add. DSD-8 has no multiply instruction at all: only add, subtract, logic, shift and compare.",children:s.jsx(RawH,{html:XA_WHY,init:xa_initWhy})}),s.jsx(Zl,{id:"iris",tone:"soft",kicker:"The flower network",title:"A 4-6-3 neural network, drawn out",lead:"Four measurements go in, six “detectors” (hidden neurons) react, three scores come out, and the biggest score wins. The lines below are the real trained int8 weights.",children:s.jsxs(Bt.Fragment,{children:[s.jsx(RawH,{html:XA_IRIS,init:xa_initIris}),s.jsx(Vh,{})]})}),s.jsx(Zl,{id:"try",kicker:"Interactive simulator",title:"Write and run real DSD-8 programs",lead:"This is a browser version of the assembler and simulator, with three ways to look at the same run. Current view shows registers, flags and LEDs. Diagram view animates every instruction through the processor, one clock cycle at a time. Waveform view draws each signal over time, like GTKWave. Choose an example (or edit it), then Step, Play or Run to end. It was checked against the repository’s reference programs: it retires the same 11, 51 and 44 instructions.",children:s.jsxs(Bt.Fragment,{children:[s.jsx(DvFs,{}),s.jsx(Gh,{})]})}),s.jsx(Zl,{id:"cnn",tone:"soft",kicker:"Second workload",title:"The same hardware reads small images",lead:"After the flower network, we asked a harder question: can the unchanged processor and accelerator run a convolutional neural network (CNN) that classifies 8×8 pictures of handwritten digits 0, 1, 2 and 3? Nothing under rtl/ was modified; the new work is software, a simulation-only data-stream device and tests.",children:s.jsxs(Bt.Fragment,{children:[s.jsx(RawH,{html:XA_CNN,init:xa_initCnn}),s.jsx(CnnBody,{})]})}),s.jsxs(Zl,{id:"speed",kicker:"Results",title:"How much faster is it?",lead:"Same processor, same inputs, same network, several different programs, for two workloads: the Iris flower network and the CNN. “Cycles” are clock ticks counted between two marker writes, so setup and the final class selection are excluded. Lower is better.",children:[s.jsx(Kh2,{}),s.jsxs("div",{className:"mt-5 grid gap-4 md:grid-cols-2",children:[s.jsxs("div",{className:"card text-sm leading-relaxed text-slate-600",children:[s.jsx("strong",{className:"text-slate-900",children:"Why isn’t shift-and-add much better?"})," It needs fewer loop trips but more instructions per trip, so on an 8-bit CPU with no multiply it is only about 1.8× faster than repeated addition."]}),s.jsxs("div",{className:"card text-sm leading-relaxed text-slate-600",children:[s.jsx("strong",{className:"text-slate-900",children:"“Posted” mode gave no gain here."})," Posted mode lets the CPU keep going after a multiply write. But our programs read the result right away, so the waiting just moves from the write to the read. Overlapping several multiplies first would help (future work)."]})]})]}),s.jsxs(Zl,{id:"proof",tone:"soft",kicker:"Verification",title:"How we know it is correct",lead:"Passing your own tests proves little if the tests copy your own mistakes. So there are four independent layers.",children:[s.jsx("div",{className:"grid gap-4 md:grid-cols-2 lg:grid-cols-4",children:[["Lint","Verilator checks the Verilog for latches, width bugs and unused signals. Clean."],["13 unit testbenches","Each block (ALU, memory, PC, bus, MAC, activation tables…) is tested alone, including 10,000 random vectors for the ALU and the multiplier."],["Whole-program traces","A Python model and the Verilog run the same program. Every retired instruction’s registers, memory writes and flags must match, byte for byte."],["486 network runs","Flowers: 23 × 5 programs × 2 bus modes = 230. Images: 64 × 4 programs = 256. Each must match the golden trace, break no bus rule, and light the LED for the class the reference model predicts."]].map(([o,E],b)=>s.jsxs("div",{className:"card",children:[s.jsxs("div",{className:"text-xs font-bold text-indigo-600",children:["LAYER ",b+1]}),s.jsx("h3",{className:"mt-1 font-semibold text-slate-900",children:o}),s.jsx("p",{className:"mt-1 text-sm leading-relaxed text-slate-600",children:E})]},o))}),s.jsx(RawH,{html:XA_PROOF}),s.jsxs("div",{className:"mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-relaxed text-amber-950",children:[s.jsx("strong",{children:"What this does not show:"}),s.jsxs("ul",{className:"mt-2 list-disc space-y-1 pl-5",children:[s.jsx("li",{children:"The 95.65% is measured on the same 23 flowers used to choose the rescale shifts, and the scaling limits came from the full dataset. Treat it as “accuracy of the shipped model”, not an independent estimate."}),s.jsx("li",{children:"Speeds are simulated clock cycles, not seconds. We did not synthesize for an FPGA, so there are no area, clock-speed or power numbers, and no board constraints or bitstream are included."}),s.jsxs("li",{children:["Iris is a very small problem, and ",s.jsx(Ht,{children:"a4"}),"’s speed-up comes from removing loops as well as from the hardware multiplier."]}),s.jsx("li",{children:"The CNN is tested on only 64 MNIST digit images (classes 0–3, shrunk to 8×8), and its stream device exists only in simulation. 2 of the 64 differ from their label; that is model error, and verification compares against the integer reference (cnn_ref.py), not the label."}),s.jsx("li",{children:"The two conformance programs in the repo are worked examples, not the instructor’s hidden suite."})]})]})]}),s.jsx(Zl,{id:"reference",kicker:"Reference",title:"The technical details",lead:"Important concepts related to the project.",children:s.jsxs("div",{className:"space-y-3",children:[s.jsxs(Vl,{title:"Processor at a glance",children:[s.jsx(_n,{head:["Resource","Size"],rows:[["Registers","8 × 8-bit (R0–R7)"],["Program memory","512 × 16-bit; 9-bit PC"],["Data memory","256 × 8-bit"],["ALU","8-bit"],["Flags","Z N C V"],["Control states","6: FETCH, DECODE, EXECUTE, MEM_IO, WRITEBACK, HALTED_S"],["Accelerator accumulator","signed 24-bit, wrapping"]]}),s.jsx("p",{className:"mt-3",children:"Cycles per instruction: NOP/HLT 2 · CMP/JMP/branch 3 · ALU, shifts, LDI, ST 4 · LD 5 · OUT 4 + wait · IN 5 + wait. Exactly one “retire” per instruction."})]}),s.jsxs(Vl,{title:"I/O port map",children:[s.jsx(_n,{head:["Port","Dir","What it is"],rows:[["0x00","R","switches"],["0x01","R","buttons (bits 4:0)"],["0x02","W","LEDs"],["0x10 / 0x11","W","seven-segment value / enable"],["0x20 / 0x21 / 0x22","W/R/R","simulated UART transmit / receive (always empty) / status"],["0x30 / 0x31","R/W","simulated timer count / control"],["0x40","R/W","delayed-echo test peripheral (0–7 cycle delay)"],["0x44 / 0x45 / 0x46","W/R/R","CNN stream peripheral (simulation only): skip to next sample / next byte (image phase) / next byte (weight phase)"],["0x50–0x5F","R/W","int8 accelerator"],["everything else","—","forwarded; the simulation model answers at once with 0 and ignores writes"]]}),s.jsxs("p",{className:"mt-3",children:["Bus rule: an access happens only when the request and ",s.jsx(Ht,{children:"io_ready"})," are both high, and ",s.jsx(Ht,{children:"io_ready"})," must stay low when nothing is requested."]})]}),s.jsxs(Vl,{title:"Accelerator registers (0x50–0x5F)",children:[s.jsx(_n,{head:["Port","Name","Use"],rows:[["0x50","NN_A","W · latch signed activation operand"],["0x51","NN_W","W · latch weight and start one multiply-accumulate"],["0x52","NN_CTRL","W · bit 0 clear accumulator, bit 1 clear counters"],["0x53–0x55","NN_ACC0–2","R · accumulator low / middle / high byte"],["0x56","NN_SHIFT","W · right shift 0–15"],["0x57","NN_QOUT","R · sat8(acc >>> shift)"],["0x58","NN_LUT_SEL","W · table bank 0 ReLU, 1 sigmoid, 2 offset-binary, 3 tanh"],["0x59","NN_ACT","R · activated, rescaled accumulator"],["0x5A / 0x5B","NN_LUT_IDX / VAL","W / R · look up any table entry directly"],["0x5C / 0x5D","NN_SKIPCNT / MACCNT","R · skipped / performed multiplies (saturate at 255)"],["0x5E","reserved","reads 0, writes ignored"],["0x5F","NN_KEY","W 0xA5 unlocks (any other value relocks) · R returns {busy, unlocked}"]]}),s.jsx("p",{className:"mt-3",children:"While locked, writes are dropped, reads return 0 and the bus is ready immediately. Reads of results wait (at most 4 cycles in tests) until the multiplier pipeline drains. In blocking mode a non-zero weight write waits for the pipeline; in posted mode it does not."})]}),s.jsxs(Vl,{title:"Neural-network program layout (data memory)",children:[s.jsx(_n,{head:["Addresses","Contents"],rows:[["0–29","layer-1 weights, bias last for each of 6 hidden neurons"],["32–52","layer-2 weights, bias last for each of 3 outputs"],["64–70","6 hidden values + constant 127"],["72–74","3 output scores (offset-binary)"],["80–84","4 inputs + constant 127"],["96–101","software-baseline scratch (pointers, counters)"]]}),s.jsx("p",{className:"mt-3",children:"Largest generated programs: a4 = 303, b0 = 388, b1 = 434 instructions (limit 512). Software baselines use 16-bit sums; the generator checks every result fits (worst case 27,722)."})]}),s.jsxs(Vl,{title:"CNN extension details",children:[s.jsx(_n,{head:["Item","Value"],rows:[["Network","8×8 image → 3×3 conv ×4 → ReLU → 2×2 max-pool → FC 36×4 → argmax"],["Stream","64 samples × 252 bytes = 16,128 bytes (64 image + 4×10 conv weights + 4×37 FC weights)"],["Data memory","pooled features 128–163, logits 168–171, scratch 176–196"],["Accumulator in software","R1:R2:R3 (b0); DMEM 181–183 then copied to registers (b1)"],["Dataset","MNIST handwritten digits 0–3, downsampled 28×28 → 8×8 (pixel values 0–127)"],["Accuracy","float 0.969 (62/64), int8 0.969 (62/64)"],["Speed (mean of 64)","a2 57,731 · a0 59,387 · b1 790,545 · b0 1,202,307 cycles → 20.8× vs b0, 13.7× vs b1"],["Runs","64 samples × 4 variants = 256, all pass; intermediate pool and logit cells match cnn_ref byte for byte"]]}),s.jsxs("p",{className:"mt-3",children:["Stream file and start sample are chosen with ",s.jsx(Ht,{children:"+CNNSTREAM=<file>"})," and ",s.jsx(Ht,{children:"+CNNSAMP=<index>"}),", like ",s.jsx(Ht,{children:"+IMEM"}),". The golden model is ",s.jsx(Ht,{children:"tools/dsd8sim_cnn.py"}),"; the reference is ",s.jsx(Ht,{children:"cnn/cnn_ref.py"}),"."]})]}),s.jsxs(Vl,{title:"Run it yourself",children:[s.jsx("pre",{className:"overflow-x-auto rounded-lg bg-slate-900 p-3 font-mono text-xs leading-relaxed text-slate-100",children:`sudo apt install python3 python3-numpy iverilog verilator gtkwave
 
 make all           # lint + 13 unit tests + conformance
 python3 nn/nn_ref.py   # int8 accuracy 22/23
@@ -929,6 +1606,365 @@ gtkwave build/waveform/dsd8_wave.vcd`}),s.jsxs("p",{className:"mt-3",children:["
 .cn-fm .cn-k{margin:0 auto;grid-template-columns:repeat(3,1.3rem)}
 .cn-fm .cn-pg6,.cn-fm .cn-pg3{flex:none;width:100%}
 .cn-fm .cn-pg3{max-width:150px;margin:0 auto}
+
+/* ================= DSD-8 design refresh + explainer sections ================= */
+:root{--xa-ink:#0b1026;--xa-ind:#4f46e5;--xa-grn:#059669;--xa-amb:#d97706;--xa-pnk:#db2777}
+html{scroll-behavior:smooth}
+body{counter-reset:xach;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+/* nav */
+nav.xa-nav{background:rgba(11,16,38,.92)!important;border-color:rgba(255,255,255,.08)!important}
+nav.xa-nav a{color:#c7d2fe!important;border-radius:999px;padding:.28rem .7rem;transition:background .2s,color .2s}
+nav.xa-nav a:first-child{color:#fff!important;letter-spacing:.02em;padding-left:0}
+nav.xa-nav a:hover{color:#fff!important;background:rgba(255,255,255,.08)}
+nav.xa-nav a.xa-on{background:#4f46e5;color:#fff!important}
+nav.xa-nav>div{gap:.2rem!important;scrollbar-width:none}
+nav.xa-nav>div::-webkit-scrollbar{display:none}
+.xa-prog{position:absolute;left:0;right:0;bottom:-1px;height:3px;background:linear-gradient(90deg,#818cf8,#34d399,#fbbf24);transform-origin:0 50%;transform:scaleX(0)}
+
+/* hero */
+header#top{position:relative;overflow:hidden;background:radial-gradient(1200px 500px at 85% -10%,rgba(99,102,241,.35),transparent 60%),radial-gradient(800px 400px at -10% 110%,rgba(16,185,129,.18),transparent 60%),linear-gradient(180deg,#0b1026,#151a3d)!important}
+header#top:before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);background-size:32px 32px;mask-image:linear-gradient(180deg,#000,transparent 85%);pointer-events:none}
+header#top>div{position:relative}
+header#top h1{color:#fff!important;letter-spacing:-.02em}
+header#top p{color:#c7d2fe!important}
+header#top p strong{color:#fff!important}
+header#top .text-indigo-600{color:#a5b4fc!important}
+header#top .rounded-2xl.border{background:rgba(255,255,255,.05)!important;border-color:rgba(255,255,255,.12)!important;box-shadow:none!important;backdrop-filter:blur(4px);transition:transform .2s,border-color .2s}
+header#top .rounded-2xl.border:hover{transform:translateY(-2px);border-color:rgba(165,180,252,.5)!important}
+header#top .rounded-2xl.border .text-indigo-700{color:#a5b4fc!important}
+header#top .rounded-2xl.border .text-slate-900{color:#fff!important}
+header#top .rounded-2xl.border .text-slate-500{color:#94a3b8!important}
+.xh-cta{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:1.6rem}
+.xh-btn{display:inline-flex;align-items:center;gap:.4rem;border-radius:999px;padding:.6rem 1.1rem;font-size:.9rem;font-weight:600;color:#e0e7ff;border:1px solid rgba(165,180,252,.35);background:rgba(255,255,255,.04);transition:background .2s,transform .2s}
+.xh-btn:hover{background:rgba(255,255,255,.12);transform:translateY(-1px)}
+.xh-btn.pri{background:#4f46e5;border-color:#6366f1;color:#fff;box-shadow:0 6px 24px rgba(79,70,229,.45)}
+.xh-btn.pri:hover{background:#4338ca}
+.xh-fig{margin:0}
+.xh-card{border-radius:1.4rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);padding:.8rem}
+.xh-svg{display:block;width:100%;height:auto}
+.xh-svg text{font-family:Inter,system-ui,sans-serif}
+.xh-wire{fill:none;stroke:#4f46e5;stroke-width:2.5;stroke-dasharray:6 6;opacity:.8}
+.xh-dot{fill:#a5b4fc}.xh-dot.g{fill:#6ee7b7}.xh-dot.y{fill:#fbbf24}
+.xh-cap{font-size:13px;font-weight:600;fill:#e0e7ff}
+.xh-sub{font-size:10.5px;fill:#94a3b8}
+.xh-pix rect{fill:rgba(255,255,255,.07)}.xh-pix rect.on{fill:#e0e7ff}
+.xh-pin{fill:#64748b}
+.xh-chipt{font:700 20px Inter,sans-serif;fill:#fff;letter-spacing:.06em}
+.xh-blk{fill:rgba(255,255,255,.06);stroke:#818cf8}.xh-blk.acc{stroke:#34d399;fill:rgba(16,185,129,.1)}
+.xh-bt{font-size:14px;font-weight:700;fill:#fff}.xh-bs{font-size:10.5px;fill:#c7d2fe}
+.xh-board{fill:rgba(255,255,255,.05);stroke:rgba(255,255,255,.15)}
+.xh-led{fill:#334155}.xh-led.on{fill:#fbbf24}
+.xh-figcap{margin-top:.6rem;font-size:.78rem;line-height:1.5;color:#94a3b8}
+
+/* sections: chapter numbers + softer cards */
+section.scroll-mt-14{counter-increment:xach;position:relative}
+section.scroll-mt-14>div>div.mb-8>div:first-child{display:inline-flex;align-items:center;gap:.5rem;border-radius:999px;background:#eef2ff;padding:.25rem .75rem .25rem .3rem}
+section.scroll-mt-14>div>div.mb-8>div:first-child:before{content:counter(xach,decimal-leading-zero);display:inline-flex;align-items:center;justify-content:center;min-width:1.7rem;height:1.7rem;border-radius:999px;background:#4f46e5;color:#fff;font-size:.7rem;letter-spacing:0}
+section.scroll-mt-14 h2{letter-spacing:-.02em}
+section.scroll-mt-14 .card{border-radius:1.2rem;box-shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px -12px rgba(15,23,42,.12)}
+section.bg-slate-50{background:linear-gradient(180deg,#f8fafc,#f1f5ff)!important}
+
+/* shared helpers */
+.x-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.x-svg{display:block;width:100%;height:auto;min-width:720px}
+.x-svg.sm{min-width:420px}
+.x-svg text{font-family:Inter,system-ui,sans-serif}
+.xw-p{margin-top:.5rem;font-size:.9rem;line-height:1.6;color:#475569}
+.xw-foot{margin-top:.7rem;font-size:.78rem;line-height:1.55;color:#64748b}
+.card code,.xc-note code,.xi-ul code{border-radius:.3rem;background:#f1f5f9;padding:.05rem .3rem;font:500 .82em "JetBrains Mono",ui-monospace,monospace;color:#1e293b}
+
+/* story */
+.xs-zone{stroke-width:1.5}.xs-zone.z1{fill:#fff7ed;stroke:#fed7aa}.xs-zone.z2{fill:#eef2ff;stroke:#c7d2fe}.xs-zone.z3{fill:#ecfdf5;stroke:#a7f3d0}.xs-zone.z4{fill:#fff;stroke:#e2e8f0}
+.xs-zt{font-size:11px;font-weight:800;letter-spacing:.1em;fill:#475569}
+.xs-paper{fill:#fff;stroke:#fdba74;stroke-width:1.5;filter:drop-shadow(0 4px 6px rgba(0,0,0,.06))}
+.xs-code{font:500 11.5px "JetBrains Mono",monospace;fill:#1e293b}.xs-ln{font:500 10px "JetBrains Mono",monospace;fill:#cbd5e1}
+.xs-hl{fill:rgba(251,146,60,.22);stroke:#fb923c}
+.xs-cap{font-size:12.5px;font-weight:700;fill:#9a3412}.xs-sub{font-size:10.5px;fill:#9a3412;opacity:.8}
+.xs-box{fill:#fff;stroke-width:1.5}.xs-box.b1{stroke:#818cf8}.xs-box.b2{stroke:#a5b4fc}.xs-box.b3{stroke:#6ee7b7}.xs-box.b4{stroke:#10b981;fill:#f0fdf4}.xs-box.b5{stroke:#ec4899;fill:#fdf2f8}
+.xs-bt{font-size:12.5px;font-weight:700;fill:#0f172a}.xs-bs{font-size:10.5px;fill:#64748b}
+.xs-tray{fill:#eef2ff;stroke:#a5b4fc}.xs-tt{font:600 9.5px "JetBrains Mono",monospace;fill:#4338ca}
+.xs-drw{fill:#f8fafc;stroke:#cbd5e1}
+.xs-bell{fill:#fbbf24}
+.xs-led{fill:#e2e8f0;stroke:#cbd5e1}.xs-led.on{fill:#fbbf24;stroke:#f59e0b;filter:drop-shadow(0 0 4px rgba(251,191,36,.9))}
+.xs-arr{stroke:#94a3b8;stroke-width:2;fill:none}.xs-arr.dash{stroke-dasharray:5 4}
+.xs-ok{fill:#059669}.xs-okt{font-size:14px;font-weight:800;fill:#fff}
+.xs-twins{display:grid;gap:.7rem;margin-top:1.2rem;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.xs-twin{display:flex;gap:.75rem;align-items:flex-start;border:1px solid #e2e8f0;background:#fff;border-radius:1rem;padding:.8rem .9rem;transition:border-color .2s,transform .2s}
+.xs-twin:hover{border-color:#a5b4fc;transform:translateY(-2px)}
+.xs-e{font-size:1.5rem;line-height:1}
+.xs-a{font-size:.88rem;font-weight:600;color:#0f172a}.xs-a span{color:#94a3b8;font-weight:400}.xs-a b{color:#4338ca}
+.xs-twin p{margin-top:.25rem;font-size:.78rem;line-height:1.5;color:#64748b}
+
+/* journey */
+.xj-track{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:.4rem;position:relative}
+@media(max-width:900px){.xj-track{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.xj-step{display:flex;flex-direction:column;align-items:center;gap:.15rem;text-align:center;border:1px solid #e2e8f0;background:#fff;border-radius:1rem;padding:.6rem .3rem;cursor:pointer;transition:all .2s;min-width:0}
+.xj-step b{font-size:.78rem;color:#0f172a}.xj-step small{font-size:.62rem;color:#94a3b8;line-height:1.25;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.xj-ic{font-size:1.4rem;width:2.6rem;height:2.6rem;display:flex;align-items:center;justify-content:center;border-radius:999px;background:#f1f5f9;transition:all .2s}
+.xj-step.done{border-color:#c7d2fe}.xj-step.done .xj-ic{background:#e0e7ff}
+.xj-step.on{border-color:#4f46e5;background:#eef2ff;box-shadow:0 0 0 3px #c7d2fe}.xj-step.on .xj-ic{background:#4f46e5;transform:scale(1.08)}
+.xj-bar{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:1rem 0}
+.xj-count{margin-left:auto;font-size:.8rem;color:#64748b}
+.xj-panel{padding:1.4rem!important}
+.xj-in{animation:xjIn .45s ease}
+@keyframes xjIn{from{opacity:.2;transform:translateY(6px)}to{opacity:1;transform:none}}
+.xj-grid{display:grid;gap:1.5rem;grid-template-columns:minmax(0,1fr)}
+@media(min-width:900px){.xj-grid{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);align-items:center}}
+.xj-vis{border-radius:1rem;background:#f8fafc;border:1px solid #eef2f7;padding:1rem;min-height:220px;display:flex;flex-direction:column;justify-content:center}
+.xj-txt h3{font-size:1.25rem;font-weight:700;color:#0f172a;letter-spacing:-.01em}
+.xj-txt p{margin-top:.55rem;font-size:.93rem;line-height:1.65;color:#475569}
+.xj-txt b{color:#0f172a}
+.xj-tech{font-size:.8rem!important;color:#64748b!important;border-left:3px solid #c7d2fe;padding-left:.7rem}
+.xj-flower{display:flex;align-items:center;gap:1.2rem;justify-content:center;flex-wrap:wrap}
+.xj-big{font-size:4.5rem;line-height:1;animation:xjSway 3s ease-in-out infinite}
+@keyframes xjSway{50%{transform:rotate(-6deg)}}
+.xj-tab td{padding:.25rem .6rem;font-size:.88rem;color:#475569;border-bottom:1px solid #e2e8f0}
+.xj-bars{display:grid;gap:.45rem}
+.xj-b{display:grid;grid-template-columns:7rem 1fr 2.6rem;align-items:center;gap:.5rem;font-size:.78rem;color:#475569}
+.xj-b div{height:.8rem;border-radius:999px;background:#e2e8f0;overflow:hidden}
+.xj-b i{display:block;height:100%;border-radius:999px;background:#94a3b8;transition:width .6s}
+.xj-b i.ind{background:linear-gradient(90deg,#818cf8,#4f46e5)}.xj-b i.grn{background:linear-gradient(90deg,#6ee7b7,#059669)}
+.xj-b em{font-style:normal;font-family:"JetBrains Mono",monospace;text-align:right;color:#0f172a}
+.xj-formula{margin-top:.6rem;border-radius:.7rem;background:#0f172a;color:#e0e7ff;padding:.6rem .8rem;font:500 .85rem "JetBrains Mono",monospace;display:inline-block}
+.xj-wgrid{display:grid;gap:3px;justify-content:center}
+.xj-wgrid>div:not(.xj-wcap){display:grid;grid-template-columns:repeat(6,2.6rem);gap:3px}
+.xj-wgrid b{text-align:center;border-radius:.35rem;padding:.25rem 0;font:600 .75rem "JetBrains Mono",monospace}
+.xj-wgrid b.p{background:#e0e7ff;color:#3730a3}.xj-wgrid b.n{background:#fee2e2;color:#991b1b}.xj-wgrid b.z{background:#f1f5f9;color:#94a3b8}
+.xj-wcap{font-size:.7rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#64748b;text-align:center;margin:.3rem 0}
+.xj-code{margin:0;border-radius:.8rem;background:#0f172a;color:#a7f3d0;padding:.8rem 1rem;font:.78rem/1.7 "JetBrains Mono",monospace;overflow-x:auto}
+.xj-code .c{color:#64748b}.xj-code.hex{color:#fde68a;text-align:center;letter-spacing:.1em}
+.xj-arrow{text-align:center;font-size:.78rem;color:#64748b;margin:.4rem 0}
+.xj-fsm{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.3rem}
+.xj-fsm i{color:#94a3b8;font-style:normal}
+.xj-st{display:flex;flex-direction:column;align-items:center;border-radius:.8rem;padding:.5rem .6rem;font-size:.68rem;font-weight:700;color:#334155;background:#fff;border:1px solid #e2e8f0;animation:xjPulse 5s infinite}
+.xj-st b{display:flex;width:1.5rem;height:1.5rem;border-radius:999px;align-items:center;justify-content:center;background:#4f46e5;color:#fff;margin-bottom:.2rem}
+.xj-st.s1{animation-delay:1s}.xj-st.s2{animation-delay:2s}.xj-st.s3{animation-delay:3s}.xj-st.s4{animation-delay:4s}
+@keyframes xjPulse{0%,18%{background:#eef2ff;border-color:#4f46e5;box-shadow:0 0 0 3px #c7d2fe}22%,100%{background:#fff;border-color:#e2e8f0;box-shadow:none}}
+.xj-mini{margin-top:.8rem;text-align:center;font-size:.78rem;color:#64748b}
+.xj-mac{display:grid;gap:3px}
+.xj-row{display:grid;grid-template-columns:5rem 1rem 3rem 1rem 1fr;gap:.3rem;align-items:center;font:500 .8rem "JetBrains Mono",monospace;color:#1e293b;background:#fff;border:1px solid #e2e8f0;border-radius:.5rem;padding:.3rem .6rem}
+.xj-row.sk{color:#94a3b8;background:#f8fafc;border-style:dashed}
+.xj-row.tot{background:#ecfdf5;border-color:#a7f3d0}
+.xj-ledbox{text-align:center}
+.xj-leds{display:flex;gap:.55rem;justify-content:center;margin:.5rem 0}
+.xj-leds i{width:1.6rem;height:1.6rem;border-radius:999px;background:#e2e8f0;border:1px solid #cbd5e1}
+.xj-leds i.on{background:#fbbf24;border-color:#f59e0b;box-shadow:0 0 14px rgba(251,191,36,.95)}
+.xj-pass{display:inline-block;margin-top:.8rem;border-radius:999px;background:#059669;color:#fff;font-weight:700;font-size:.85rem;padding:.4rem .9rem}
+
+/* why */
+.xw-grid,.xa-grid,.xc-grid{display:grid;gap:1.25rem;grid-template-columns:minmax(0,1fr)}
+@media(min-width:900px){.xw-grid,.xa-grid,.xc-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.xa-grid,.xc-shape{margin-top:1.25rem}
+.xw-stack{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.9rem;min-height:3.2rem}
+.xw-blk{display:flex;flex-direction:column;align-items:center;border-radius:.6rem;background:#f1f5f9;border:1px solid #cbd5e1;padding:.3rem .55rem;animation:xwPop .35s ease}
+.xw-blk b{font:600 .8rem "JetBrains Mono",monospace;color:#334155}.xw-blk span{font-size:.65rem;color:#64748b}
+@keyframes xwPop{from{transform:scale(.6);opacity:0}}
+.xw-total{margin-top:.7rem;font-size:.95rem;color:#334155}.xw-total b{font-family:"JetBrains Mono",monospace;font-size:1.3rem;color:#0f172a}.xw-n{font-size:.78rem;color:#64748b;margin-left:.4rem}
+.xw-hw{background:linear-gradient(180deg,#fff,#f0fdf4)!important;border-color:#a7f3d0!important}
+.xw-pipe{display:flex;align-items:center;gap:.6rem;margin-top:1rem;flex-wrap:wrap}
+.xw-pipe>div{display:flex;flex-direction:column;align-items:center;border-radius:.8rem;background:#fff;border:1px solid #a7f3d0;padding:.5rem .9rem}
+.xw-pipe b{font:700 1.4rem "JetBrains Mono",monospace;color:#065f46}.xw-pipe span{font-size:.68rem;color:#64748b}
+.xw-pipe i{font-style:normal;font-size:1.2rem;color:#059669}
+.xw-pipe .res{background:#059669;border-color:#059669}.xw-pipe .res b,.xw-pipe .res span{color:#fff}
+.xw-pipe.go .res{animation:xwPop .5s .6s both}
+.xw-replay{margin-top:.8rem}
+.xw-count{display:grid;gap:1rem;margin-top:1.25rem;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.xw-count>div{border-radius:1.2rem;background:#0f172a;color:#e2e8f0;padding:1rem 1.2rem}
+.xw-count b{display:block;font-size:2rem;font-weight:800;color:#a5b4fc;letter-spacing:-.02em}
+.xw-count span{font-size:.8rem;line-height:1.45;color:#94a3b8}
+.xw-race{margin-top:1.25rem}
+.xw-rh{display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;align-items:flex-start}
+.xw-rh>div:first-child{flex:1 1 320px}
+.xw-tabs{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
+.xw-lane{display:grid;grid-template-columns:10rem 1fr 8.5rem;gap:.7rem;align-items:center;margin-top:1rem}
+@media(max-width:640px){.xw-lane{grid-template-columns:1fr}.xw-val{text-align:left!important}}
+.xw-ln{font-size:.85rem;font-weight:600;color:#0f172a}.xw-ln em{font-style:normal;font:500 .72rem "JetBrains Mono",monospace;color:#94a3b8;margin-left:.3rem}
+.xw-track{height:1.6rem;border-radius:999px;background:#f1f5f9;overflow:hidden;border:1px solid #e2e8f0}
+.xw-fill{display:block;height:100%;width:0;border-radius:999px}
+.xw-fill.sw{background:repeating-linear-gradient(45deg,#94a3b8 0 10px,#a3b1c6 10px 20px)}
+.xw-fill.hw{background:linear-gradient(90deg,#818cf8,#4f46e5)}
+.xw-val{font:500 .82rem "JetBrains Mono",monospace;color:#334155;text-align:right}
+.xw-msg{margin-top:1rem;border-radius:.8rem;background:#f8fafc;border:1px solid #e2e8f0;padding:.6rem .9rem;font-size:.88rem;color:#334155}
+
+/* accelerator */
+.xa-svg{min-width:900px}
+.xa-b{stroke-width:1.6;fill:#fff}.xa-b.cpu{stroke:#4f46e5;fill:#eef2ff}.xa-b.port{stroke:#d97706;fill:#fffbeb}.xa-b.dec{stroke:#64748b;fill:#f8fafc}.xa-b.skip{stroke:#94a3b8;fill:#f1f5f9;stroke-dasharray:5 4}
+.xa-b.st{stroke:#10b981;fill:#ecfdf5}.xa-b.accb{stroke:#059669;fill:#d1fae5}.xa-b.rq{stroke:#0ea5e9;fill:#f0f9ff}.xa-b.lut{stroke:#db2777;fill:#fdf2f8}
+.xa-zone{fill:none;stroke:#a7f3d0;stroke-dasharray:6 5;stroke-width:1.5}
+.xa-t{font-size:15px;font-weight:700;fill:#0f172a}.xa-t.sm{font-size:12.5px}.xa-s{font-size:10.5px;fill:#64748b}.xa-s.y{font-weight:700;fill:#475569}.xa-m{font:600 11px "JetBrains Mono",monospace;fill:#92400e}
+.xa-l{stroke:#64748b;stroke-width:1.8;fill:none}.xa-l.back{stroke:#cbd5e1;stroke-dasharray:6 5}
+.xa-dot{fill:#4f46e5;filter:drop-shadow(0 0 5px rgba(79,70,229,.8))}
+.xa-luts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem;margin-top:.8rem}
+.xa-lut{margin:0;border:1px solid #e2e8f0;border-radius:.8rem;padding:.5rem;background:#fff}
+.xa-lut svg{display:block;width:100%;height:auto}
+.xa-lbg{fill:#f8fafc}.xa-ax{stroke:#e2e8f0;stroke-width:1}
+.xa-lc{fill:none;stroke-width:2.4}.xa-lc.b0{stroke:#4f46e5}.xa-lc.b1{stroke:#059669}.xa-lc.b2{stroke:#d97706}.xa-lc.b3{stroke:#db2777}
+.xa-lut figcaption{display:flex;flex-direction:column;margin-top:.3rem;font-size:.78rem}.xa-lut figcaption b{color:#0f172a}.xa-lut figcaption span{color:#64748b;font-size:.72rem}
+.xa-ol{margin-top:.6rem;padding-left:1.2rem;list-style:decimal;display:grid;gap:.45rem;font-size:.88rem;line-height:1.55;color:#475569}
+.xa-tl{display:grid;grid-template-columns:5.5rem 1fr;gap:.6rem;align-items:center;margin-top:.8rem;font-size:.8rem;font-weight:600;color:#334155}
+.xa-tl>div{display:flex;gap:3px}
+.xa-tl i{font-style:normal;font-size:.7rem;font-weight:600;border-radius:.4rem;padding:.35rem .5rem;color:#fff}
+.xa-tl .w{background:#d97706}.xa-tl .b{background:#94a3b8;flex:1}.xa-tl .r{background:#4f46e5}.xa-tl .r2{background:#4f46e5;opacity:.85}
+
+/* iris */
+.xi-grid{display:grid;gap:1.25rem;grid-template-columns:minmax(0,1fr)}
+@media(min-width:1000px){.xi-grid{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}}
+.xi-svg{min-width:560px}
+.xi-e{stroke-linecap:round}.xi-e.p{stroke:#4f46e5}.xi-e.n{stroke:#dc2626}.xi-e.z{stroke:#cbd5e1;stroke-dasharray:3 4;stroke-width:1}
+.xi-e:hover{opacity:1!important;stroke-width:6!important}
+.xi-n{stroke-width:2}.xi-n.in{fill:#fff7ed;stroke:#fb923c}.xi-n.bias{stroke-dasharray:4 3;fill:#fff}.xi-n.hd{fill:#eef2ff;stroke:#4f46e5}
+.xi-n.out{stroke-width:2.5}.xi-n.o0{fill:#e0f2fe;stroke:#0ea5e9}.xi-n.o1{fill:#d1fae5;stroke:#10b981}.xi-n.o2{fill:#fae8ff;stroke:#c026d3}
+.xi-t{font-size:12px;font-weight:600;fill:#334155}.xi-tn{font:700 10px Inter,sans-serif;fill:#3730a3}.xi-cap{font-size:11px;font-weight:700;letter-spacing:.06em;fill:#94a3b8;text-transform:uppercase}
+.xi-side{display:grid;gap:1rem;align-content:start}
+.xi-ul{margin-top:.6rem;display:grid;gap:.45rem;font-size:.86rem;line-height:1.55;color:#475569;list-style:disc;padding-left:1.1rem}
+.xi-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem}
+.xi-facts>div{border-radius:1rem;background:#0f172a;padding:.8rem 1rem}
+.xi-facts b{display:block;font-size:1.5rem;font-weight:800;color:#a5b4fc}.xi-facts span{font-size:.75rem;color:#94a3b8}
+.xi-h3{margin-top:2.2rem;font-size:1.35rem;font-weight:700;color:#0f172a;letter-spacing:-.01em}
+.xi-lead{margin:.4rem 0 1rem;font-size:.95rem;color:#475569;max-width:48rem}
+
+/* cnn */
+.xc-digits{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.6rem;margin-top:.9rem}
+.xc-digits figure{margin:0;text-align:center}
+.xc-digits svg{display:block;width:100%;max-width:110px;margin:0 auto;border-radius:.6rem;background:#0f172a;padding:4px}
+.xc-digits rect{fill:#1e293b}.xc-digits rect.on{fill:#e0e7ff}
+.xc-digits figcaption{margin-top:.3rem;font-size:.72rem;color:#64748b}
+.xc-s{stroke:#fff;stroke-width:2}.xc-s.img{fill:#4f46e5}.xc-s.cv{fill:#059669}.xc-s.fc{fill:#d97706}
+.xc-st{font-size:11px;font-weight:700;fill:#fff}.xc-sm{font-size:10.5px;fill:#64748b}.xc-cap{font-size:11.5px;font-weight:700;fill:#334155}
+.xc-px{fill:#f1f5f9;stroke:#e2e8f0}
+.xc-win{fill:rgba(251,191,36,.25);stroke:#f59e0b;stroke-width:2.5}
+.xc-arr{font-size:26px;fill:#94a3b8}
+.xc-fm{stroke:#fff;stroke-width:1}.xc-fm.f0{fill:#c7d2fe}.xc-fm.f1{fill:#a7f3d0}.xc-fm.f2{fill:#fde68a}.xc-fm.f3{fill:#fbcfe8}
+.xc-sc{fill:#e2e8f0}.xc-sc.w{fill:#4f46e5}
+.xc-note{margin:1.25rem 0;border-radius:1rem;border:1px solid #fde68a;background:#fffbeb;padding:.9rem 1.1rem;font-size:.86rem;line-height:1.6;color:#78350f}
+
+/* proof */
+.xp-card{margin-top:1.5rem}
+.xp-b{stroke-width:1.6;fill:#fff}.xp-b.f{stroke:#cbd5e1;fill:#f8fafc}.xp-b.t{stroke:#d97706;fill:#fffbeb}.xp-b.g{stroke:#059669;fill:#ecfdf5}.xp-b.r{stroke:#4f46e5;fill:#eef2ff}
+.xp-t{font-size:12.5px;font-weight:700;fill:#0f172a}.xp-s{font-size:10.5px;fill:#64748b}
+.xp-l{stroke:#64748b;stroke-width:1.8;fill:none}
+.xp-ok{fill:#059669;filter:drop-shadow(0 6px 10px rgba(5,150,105,.35))}.xp-okt{font-size:14px;font-weight:800;fill:#fff}
+.xp-trace{margin-top:1rem}
+.xp-tl{display:flex;flex-wrap:wrap;gap:4px}
+.xp-tl>div{display:flex;flex-direction:column;align-items:center;flex:1 1 80px;border-radius:.6rem;padding:.45rem .3rem;background:#f1f5f9;border-top:3px solid #94a3b8}
+.xp-tl b{font:600 .95rem "JetBrains Mono",monospace;color:#0f172a}.xp-tl span{font-size:.64rem;color:#64748b;text-align:center;line-height:1.25;margin-top:.15rem}
+.xp-tl .c0,.xp-tl .c1,.xp-tl .c2{border-color:#4f46e5}.xp-tl .c3,.xp-tl .c4,.xp-tl .c5{border-color:#059669}.xp-tl .c6,.xp-tl .c7,.xp-tl .c8{border-color:#d97706}.xp-tl .c9{border-color:#db2777}
+.xp-ladder{display:grid;gap:.7rem;margin-top:1.25rem;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+.xp-ladder>div{border-radius:1rem;background:#fff;border:1px solid #e2e8f0;padding:.8rem .9rem;position:relative}
+.xp-ladder>div:after{content:"✓";position:absolute;top:.6rem;right:.7rem;width:1.3rem;height:1.3rem;border-radius:999px;background:#d1fae5;color:#047857;font-size:.75rem;font-weight:800;display:flex;align-items:center;justify-content:center}
+.xp-ladder span{font-size:.72rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#64748b}
+.xp-ladder b{display:block;font-size:1.4rem;font-weight:800;color:#059669;margin-top:.1rem}
+.xp-ladder p{font-size:.75rem;line-height:1.45;color:#64748b;margin-top:.2rem}
+
+/* faq */
+.xf{display:grid;gap:.6rem}
+.xf-q{border:1px solid #e2e8f0;border-radius:1rem;background:#fff;transition:border-color .2s,box-shadow .2s}
+.xf-q[open]{border-color:#a5b4fc;box-shadow:0 0 0 3px #eef2ff}
+.xf-q summary{display:flex;gap:.7rem;align-items:center;cursor:pointer;list-style:none;padding:.85rem 1rem;font-weight:600;color:#0f172a}
+.xf-q summary::-webkit-details-marker{display:none}
+.xf-q summary:after{content:"+";margin-left:auto;font-size:1.2rem;color:#94a3b8;transition:transform .2s}
+.xf-q[open] summary:after{transform:rotate(45deg)}
+.xf-n{flex:none;width:1.7rem;height:1.7rem;border-radius:999px;background:#eef2ff;color:#4338ca;font-size:.75rem;font-weight:800;display:flex;align-items:center;justify-content:center}
+.xf-q p{padding:0 1rem 1rem 3.4rem;font-size:.92rem;line-height:1.65;color:#475569}
+@media(max-width:640px){.xf-q p{padding-left:1rem}}
+
+/* scroll-in reveal for cards */
+.xa-rev{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
+.xa-rev.xa-vis{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){.xa-rev{opacity:1;transform:none}}
+/* mobile overflow fixes (present in the original too) */
+section .grid>*{min-width:0}
+#cpu label{display:block;max-width:100%}
+#cpu select{max-width:100%;width:100%}
+@media(max-width:640px){.xs-twins{grid-template-columns:1fr}.xj-b{grid-template-columns:5.5rem 1fr 2.4rem}.xj-wgrid>div:not(.xj-wcap){grid-template-columns:repeat(6,2.2rem)}.xi-facts b{font-size:1.25rem}}
+
+/* ===== simulator: fixed-height scrollable editor ===== */
+.xa-ed{height:22rem;overflow:auto!important;scrollbar-color:#334155 transparent}
+.xa-ed>div{min-height:100%}
+.xa-ed textarea{overflow:hidden}
+
+/* ===== simulator: real full-screen layout (no scaling) ===== */
+#try.dsv-fs{position:fixed!important;inset:0!important;z-index:100;overflow:hidden!important;background:#f8fafc!important;padding:0!important}
+#try.dsv-fs>div{position:static!important;transform:none!important;width:auto!important;max-width:none!important;height:100%!important;margin:0!important;padding:12px 16px 14px!important;box-sizing:border-box;display:flex;flex-direction:column}
+#try.dsv-fs>div>div.mb-8{display:none!important}
+#try.dsv-fs .dsv-fsbar{position:absolute!important;top:12px!important;right:16px!important;margin:0!important;z-index:3}
+#try.dsv-fs>div>div:last-child{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+#try.dsv-fs .dsv-tabs{flex:none;padding-right:180px!important;margin-bottom:10px!important;gap:.5rem!important}
+#try.dsv-fs .dsv-tab{padding:.45rem .9rem!important;flex:1 1 160px!important}
+#try.dsv-fs .dsv-tab span{display:none}
+/* the two-column body */
+#try.dsv-fs .dsv-split,#try.dsv-fs .grid.lg\:grid-cols-5{flex:1 1 auto;min-height:0;display:grid!important;gap:14px!important;grid-template-columns:minmax(340px,420px) minmax(0,1fr)!important}
+#try.dsv-fs .grid.lg\:grid-cols-5{grid-template-rows:minmax(0,1fr)!important}
+#try.dsv-fs .dsv-split{grid-template-rows:auto minmax(0,1fr)!important}
+/* left column: examples, editor (fills the height), buttons */
+#try.dsv-fs .dsv-l,#try.dsv-fs .grid.lg\:grid-cols-5>div:first-child{grid-column:1!important;grid-row:1/-1!important;min-height:0;display:flex;flex-direction:column;background:#fff;border:1px solid #e2e8f0;border-radius:1rem;padding:12px}
+#try.dsv-fs .dsv-l>div:first-child,#try.dsv-fs .grid.lg\:grid-cols-5>div:first-child>div:first-child{flex:none;gap:.35rem!important;margin-bottom:.5rem!important}
+#try.dsv-fs .dsv-l .chip,#try.dsv-fs .grid.lg\:grid-cols-5>div:first-child .chip{font-size:.7rem!important;padding:.15rem .55rem!important}
+#try.dsv-fs .dsv-l>p,#try.dsv-fs .grid.lg\:grid-cols-5>div:first-child>p{flex:none;font-size:.78rem!important;line-height:1.45;margin-bottom:.5rem!important}
+#try.dsv-fs .xa-ed{flex:1 1 auto;height:auto;min-height:8rem}
+#try.dsv-fs .dsv-l>div:last-child,#try.dsv-fs .grid.lg\:grid-cols-5>div:first-child>div:last-child{flex:none;margin-top:.6rem!important}
+#try.dsv-fs .dsv-l>div:last-child>span,#try.dsv-fs .grid.lg\:grid-cols-5>div:first-child>div:last-child>span{margin-left:0!important;width:100%}
+#try.dsv-fs .dsv-l .btn,#try.dsv-fs .grid.lg\:grid-cols-5>div:first-child .btn{padding:.4rem .8rem!important}
+/* right column: scrolls on its own */
+#try.dsv-fs .grid.lg\:grid-cols-5>div:last-child{grid-column:2!important;min-height:0;overflow-y:auto;padding-right:4px}
+#try.dsv-fs .grid.lg\:grid-cols-5>div:last-child{display:block;column-count:2;column-gap:14px}
+#try.dsv-fs .grid.lg\:grid-cols-5>div:last-child>*{break-inside:avoid;margin-bottom:14px!important}
+
+#try.dsv-fs .dsv-r{grid-column:2!important;grid-row:1!important;min-height:0}
+#try.dsv-fs .dsv-r .card{padding:.8rem 1rem!important}
+#try.dsv-fs .dsv-full{grid-column:2!important;grid-row:2!important;min-height:0;overflow:auto}
+#try.dsv-fs .dsv-svg,#try.dsv-fs .dsv-wwrap{min-width:0!important}
+#try.dsv-fs .dsv-scroll,#try.dsv-fs .dsv-wscroll{overflow:auto!important}
+#try.dsv-fs .grid.lg\:grid-cols-5>div:last-child{align-items:start}
+#try.dsv-fs .dsv-full>div{min-height:100%;display:flex;flex-direction:column}
+#try.dsv-fs .dsv-full .dsv-scroll{flex:1 1 auto;min-height:260px;position:relative;overflow:hidden!important}
+#try.dsv-fs .dsv-full .dsv-scroll>div{position:absolute;inset:8px}
+#try.dsv-fs .dsv-full .dsv-scroll svg.dsv-svg{display:block;width:100%!important;height:100%!important}
+#try.dsv-fs .dsv-full .dsv-legend{flex:none}
+
+.xa-ed textarea{white-space:pre;overflow-wrap:normal;overflow-x:auto}
+@media(max-width:1100px){#try.dsv-fs .grid.lg\:grid-cols-5>div:last-child{column-count:1}}
+
+/* ===== adjustable sizes ===== */
+#try>div>div:last-child{zoom:var(--xa-z,1)}
+.dsv-fsbar{display:flex!important;align-items:center;gap:.4rem;flex-wrap:wrap}
+.xa-zoom{display:inline-flex;align-items:center;gap:.25rem;margin-right:.3rem}
+.xa-zoom .btn{padding:.35rem .6rem!important;font-size:.8rem!important;min-width:2.3rem}
+.xa-zoom .btn:disabled{opacity:.4;cursor:default}
+.xa-zv{font-family:"JetBrains Mono",monospace}
+.xa-zl{font-size:.72rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#94a3b8;margin-right:.2rem}
+#try.dsv-fs .dsv-tabs{padding-right:420px!important}
+@media(max-width:1100px){#try.dsv-fs .dsv-tabs{padding-right:0!important;margin-top:46px}}
+/* editor: drag its corner to make it taller/shorter (normal page) */
+#try:not(.dsv-fs) .xa-ed{resize:vertical;min-height:10rem;max-height:80vh}
+/* draggable vertical divider between editor and the right-hand panel */
+@media(min-width:1024px){
+ #try .dsv-split>.dsv-l,#try .lg\:grid-cols-5>div:first-child{position:relative}
+ #try .dsv-split>.dsv-l:after,#try .lg\:grid-cols-5>div:first-child:after{content:"";position:absolute;top:8px;bottom:8px;right:-13px;width:6px;border-radius:99px;background:#e2e8f0 radial-gradient(circle,#94a3b8 1.2px,transparent 1.6px) center/6px 9px repeat-y;cursor:col-resize;transition:background-color .2s}
+ #try .dsv-split>.dsv-l:hover:after,#try .lg\:grid-cols-5>div:first-child:hover:after,body.xa-dx #try .dsv-l:after,body.xa-dx #try .lg\:grid-cols-5>div:first-child:after{background-color:#a5b4fc}
+ #try.xa-sized:not(.dsv-fs) .lg\:grid-cols-5{grid-template-columns:var(--xa-left) minmax(0,1fr)!important}
+ #try.xa-sized:not(.dsv-fs) .lg\:grid-cols-5>div{grid-column:auto!important}
+ #try.xa-sized:not(.dsv-fs) .dsv-split{grid-template-columns:var(--xa-left) minmax(0,1fr)!important}
+ #try.xa-sized:not(.dsv-fs) .dsv-l{grid-column:1!important}
+ #try.xa-sized:not(.dsv-fs) .dsv-r{grid-column:2!important}
+ #try.dsv-fs .dsv-split>.dsv-l:after,#try.dsv-fs .lg\:grid-cols-5>div:first-child:after{right:-11px}
+}
+#try.dsv-fs .dsv-split,#try.dsv-fs .grid.lg\:grid-cols-5{grid-template-columns:var(--xa-left,420px) minmax(0,1fr)!important}
+/* horizontal divider under the explanation card (diagram / waveform, full screen) */
+#try.dsv-fs .dsv-split{grid-template-rows:var(--xa-top,auto) minmax(0,1fr)!important}
+#try.dsv-fs .dsv-r{position:relative;height:100%}
+#try.dsv-fs .dsv-r>.card{height:100%;overflow:auto}
+#try.dsv-fs .dsv-r:after{content:"";position:absolute;left:35%;right:35%;bottom:-10px;height:6px;border-radius:99px;background:#e2e8f0 radial-gradient(circle,#94a3b8 1.2px,transparent 1.6px) center/9px 6px repeat-x;cursor:row-resize}
+#try.dsv-fs .dsv-r:hover:after,body.xa-dy #try .dsv-r:after{background-color:#a5b4fc}
+body.xa-drag{user-select:none!important;-webkit-user-select:none!important}
+body.xa-dx,body.xa-dx *{cursor:col-resize!important}body.xa-dy,body.xa-dy *{cursor:row-resize!important}
+/* full screen: hide the page behind, fill the whole screen */
+#try:fullscreen{width:100vw;height:100vh;background:#f8fafc}
+#try::backdrop{background:#f8fafc}
+.xa-toast{position:fixed;left:50%;top:16px;z-index:300;transform:translate(-50%,-20px);opacity:0;max-width:min(560px,92vw);border-radius:.9rem;background:#0f172a;color:#e2e8f0;padding:.7rem 1rem;font-size:.85rem;line-height:1.5;box-shadow:0 10px 30px rgba(0,0,0,.25);transition:opacity .3s,transform .3s}
+.xa-toast.on{opacity:1;transform:translate(-50%,0)}
 </style>
   </head>
   <body class="antialiased selection:bg-indigo-100">
